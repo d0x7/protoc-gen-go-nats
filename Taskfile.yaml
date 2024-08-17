@@ -1,0 +1,13 @@
+version: 3
+
+tasks:
+  build:
+    desc: Build the plugin
+    cmds:
+      - go build -o protoc-gen-go-nats cmd/*.go
+  install:
+    desc: Install the plugin
+    deps:
+      - build
+    cmds:
+      - cp protoc-gen-go-nats ~/go/bin/protoc-gen-go-nats
