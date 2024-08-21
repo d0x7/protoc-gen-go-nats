@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"gitea.xiam.li/Hydria/protoc-gen-go-nats/pb"
+	pb "gitea.xiam.li/Hydria/protoc-gen-go-nats/proto"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"

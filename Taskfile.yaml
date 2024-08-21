@@ -11,3 +11,7 @@ tasks:
       - build
     cmds:
       - cp protoc-gen-go-nats ~/go/bin/protoc-gen-go-nats
+  proto:
+    desc: Regenerate protobuf files
+    cmds:
+      - protoc -I proto --go_out=proto --go_opt=paths=source_relative proto/go_nats.proto
