@@ -5,21 +5,21 @@ import (
 	"fmt"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/types/pluginpb"
+	"jdk.sh/meta"
 )
 
-const version = "1.0.0"
-
 func main() {
-	showVersion := flag.Bool("version", false, "print the version and exit")
+	var showVersion bool
+	flag.BoolVar(&showVersion, "version", false, "print the version and exit")
+	flag.BoolVar(&showVersion, "v", false, "print the version and exit")
 	flag.Parse()
-	if *showVersion {
-		fmt.Printf("protoc-gen-go-nats v%s\n", version)
+	if showVersion {
+		fmt.Printf("protoc-gen-go-nats %s (%s), built on %s\n", meta.Version(), meta.ShortSHA(), meta.Date())
 		return
 	}
 
 	var (
 		flags flag.FlagSet
-		_     = flags.String("internal_test_flag", "", "test flag")
 	)
 	protogen.Options{
 		ParamFunc: flags.Set,

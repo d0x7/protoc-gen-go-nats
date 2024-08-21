@@ -16,3 +16,5 @@ golang.org/x/sys v0.24.0 h1:Twjiwq9dn6R1fQcyiK+wQyHWfaz/BJB+YIpzU/Cv3Xg=
 golang.org/x/sys v0.24.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
 google.golang.org/protobuf v1.34.2 h1:6xV6lTsCfpGD21XK49h7MhtcApnLqkfYgPcdHftf6hg=
 google.golang.org/protobuf v1.34.2/go.mod h1:qYOHts0dSfpeUzUFpOMr/WGzszTmLH+DiWniOlNbLDw=
+jdk.sh/meta v0.1.0 h1:BTDH9cL/el15OSZWRcnbdOzynyr7hlRlYrTSJCrcKbo=
+jdk.sh/meta v0.1.0/go.mod h1:c2+wWgMZejSQ2nXsbxNVKLLQgTLY4yrX7TH6NIaQle0=

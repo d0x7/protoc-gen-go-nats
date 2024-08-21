@@ -4,7 +4,7 @@ tasks:
   build:
     desc: Build the plugin
     cmds:
-      - go build -o protoc-gen-go-nats cmd/*.go
+    - go build -ldflags "-X 'jdk.sh/meta.version=$(gitversion)' -X 'jdk.sh/meta.sha=$(git rev-parse HEAD)' -X 'jdk.sh/meta.date=$(date -R)'" -o protoc-gen-go-nats cmd/*.go
   install:
     desc: Install the plugin
     deps:
