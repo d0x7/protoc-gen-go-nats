@@ -4,7 +4,11 @@ tasks:
   build:
     desc: Build the plugin
     cmds:
-    - go build -ldflags "-X 'jdk.sh/meta.version=$(gitversion)' -X 'jdk.sh/meta.sha=$(git rev-parse HEAD)' -X 'jdk.sh/meta.date=$(date -R)'" -o protoc-gen-go-nats cmd/*.go
+      - go build -ldflags "-X 'xiam.li/meta.version=$(gitversion)' -X 'xiam.li/meta.sha=$(git rev-parse HEAD)' -X 'xiam.li/meta.date=$(date -R)'" -o protoc-gen-go-nats cmd/*.go
+  run:
+    desc: Run the plugin
+    cmds:
+      - go run -ldflags "-X 'xiam.li/meta.version=$(gitversion)' -X 'xiam.li/meta.sha=$(git rev-parse HEAD)' -X 'xiam.li/meta.date=$(date -R)'" cmd/*.go -v
   install:
     desc: Install the plugin
     deps:

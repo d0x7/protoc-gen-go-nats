@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/types/pluginpb"
-	"jdk.sh/meta"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+	"xiam.li/meta"
 )
 
 func main() {
@@ -14,7 +18,7 @@ func main() {
 	flag.BoolVar(&showVersion, "v", false, "print the version and exit")
 	flag.Parse()
 	if showVersion {
-		fmt.Printf("protoc-gen-go-nats %s (%s), built on %s\n", meta.Version(), meta.ShortSHA(), meta.Date())
+		fmt.Printf("%s %s (%s), built on %s\n", filepath.Base(os.Args[0]), meta.VersionOr("v0.0.0-dev+dirty"), meta.ShortSHAOr(strings.Repeat("x", 40)), meta.DateOr(time.Now()))
 		return
 	}
 

@@ -6,6 +6,7 @@ require (
 	github.com/nats-io/nats.go v1.37.0
 	github.com/pkg/errors v0.9.1
 	google.golang.org/protobuf v1.34.2
+	xiam.li/meta v0.2.0
 )
 
 require (
@@ -15,5 +16,4 @@ require (
 	github.com/nats-io/nuid v1.0.1 // indirect
 	golang.org/x/crypto v0.26.0 // indirect
 	golang.org/x/sys v0.24.0 // indirect
-	jdk.sh/meta v0.1.0 // indirect
 )
