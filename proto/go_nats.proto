@@ -4,7 +4,7 @@ package protoc.gen.go_nats;
 
 import "google/protobuf/descriptor.proto";
 
-option go_package = "./proto";
+option go_package = "gitea.xiam.li/Hydria/protoc-gen-go-nats;proto";
 
 extend google.protobuf.ServiceOptions {
     optional NATSServiceOptions nats = 9001;
