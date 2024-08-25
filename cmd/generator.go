@@ -15,6 +15,7 @@ const (
 	natsPkg   = protogen.GoImportPath("github.com/nats-io/nats.go")
 	microPkg  = protogen.GoImportPath("github.com/nats-io/nats.go/micro")
 	timePkg   = protogen.GoImportPath("time")
+	slogPkg   = protogen.GoImportPath("log/slog")
 	protoPkg  = protogen.GoImportPath("google.golang.org/protobuf/proto")
 	protocPkg = protogen.GoImportPath("gitea.xiam.li/Hydria/protoc-gen-go-nats")
 )
@@ -24,6 +25,7 @@ var (
 	microConfig    = microPkg.Ident("Config")
 	microRequest   = microPkg.Ident("Request")
 	timeDuration   = timePkg.Ident("Duration")
+	debugLogger    = slogPkg.Ident("Debug")
 	protoMessage   = protoPkg.Ident("Message")
 	protoMarshal   = protoPkg.Ident("Marshal")
 	protoUnmarshal = protoPkg.Ident("Unmarshal")
@@ -107,13 +109,31 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) {
 		g.P("Version: ", strconv.Quote("1.0.0-DEV"), ",") // TODO: make this use actual option nats_in
 		g.P("Description: ", strconv.Quote("Using default version and auto derived name - please manually set details using NATSServiceOptions service in protobuf file."), ",")
 	}
-
 	g.P("}")
 	g.P()
+
+	g.P("// Check if the service implements any of the handler interfaces")
+	g.P("// but do it before applying options, so these can still override the handlers")
+	g.P("if statsHandler, isStatsHandler := impl.(", g.QualifiedGoIdent(protocPkg.Ident("StatsHandler")), "); isStatsHandler {")
+	g.P("config.StatsHandler = statsHandler.Stats")
+	g.P(debugLogger, "(\"Service implements StatsHandler; using service's Stats method\")")
+	g.P("}")
+	g.P("if doneHandler, isDoneHandler := impl.(", g.QualifiedGoIdent(protocPkg.Ident("DoneHandler")), "); isDoneHandler {")
+	g.P("config.DoneHandler = doneHandler.Done")
+	g.P(debugLogger, "(\"Service implements DoneHandler; using service's Done method\")")
+	g.P("}")
+	g.P("if errHandler, isErrHandler := impl.(", g.QualifiedGoIdent(protocPkg.Ident("ErrHandler")), "); isErrHandler {")
+	g.P("config.ErrorHandler = errHandler.Err")
+	g.P(debugLogger, "(\"Service implements ErrHandler; using service's Err method\")")
+	g.P("}")
+	g.P()
+
+	g.P("// Apply options")
 	g.P("for _, opt := range opts {")
 	g.P("opt(&config)")
 	g.P("}")
 	g.P()
+	g.P("// Create the service")
 	g.P("service, err := micro.AddService(nc, config)")
 	g.P("if err != nil {")
 	g.P("panic(err) // TODO: Update this to proper error handling")
@@ -121,6 +141,7 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) {
 	g.P()
 
 	// Generate service endpoints
+	g.P("// Register the service's methods")
 	for _, method := range service.Methods {
 		g.P("service.AddEndpoint(", strconv.Quote(subjectName(service, method)), ", ", g.QualifiedGoIdent(microPkg.Ident("HandlerFunc")), "(func(request ", g.QualifiedGoIdent(microRequest), ") {")
 		g.P("var req ", g.QualifiedGoIdent(method.Input.GoIdent))
