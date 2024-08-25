@@ -89,7 +89,7 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) {
 	generateServerOptionHandler(g, "ErrorHandler", "ErrHandler")
 
 	// Generate NewServer function
-	g.P("func New", srvName, "(nc *", natsConn, ", impl ", srvName, ", opts ...ServerOption) {")
+	g.P("func New", srvName, "(nc *", natsConn, ", impl ", srvName, ", opts ...ServerOption) ", g.QualifiedGoIdent(microPkg.Ident("Service")), " {")
 	g.P("config := ", microConfig, "{")
 
 	if serviceOptions := service.Desc.Options().(*descriptorpb.ServiceOptions); serviceOptions != nil {
@@ -150,6 +150,7 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) {
 		g.P()
 	}
 
+	g.P("return service")
 	g.P("}")
 	g.P()
 }
