@@ -86,9 +86,18 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) {
 	g.P("type ServerOption func(config *", g.QualifiedGoIdent(microConfig), ")")
 
 	// Generate server option functions
-	generateServerOptionHandler(g, "StatsHandler", "StatsHandler")
-	generateServerOptionHandler(g, "DoneHandler", "DoneHandler")
-	generateServerOptionHandler(g, "ErrorHandler", "ErrHandler")
+	for field, typ := range map[string]string{
+		"StatsHandler": "StatsHandler",
+		"DoneHandler":  "DoneHandler",
+		"ErrorHandler": "ErrHandler",
+	} {
+		g.P("func With", field, "(handler ", g.QualifiedGoIdent(microPkg.Ident(typ)), ") ServerOption {")
+		g.P("return func(config *", g.QualifiedGoIdent(microConfig), ") {")
+		g.P("config.", field, " = handler")
+		g.P("}")
+		g.P("}")
+		g.P()
+	}
 
 	// Generate NewServer function
 	g.P("func New", srvName, "(nc *", natsConn, ", impl ", srvName, ", opts ...ServerOption) ", g.QualifiedGoIdent(microPkg.Ident("Service")), " {")
@@ -175,15 +184,6 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) {
 	}
 
 	g.P("return service")
-	g.P("}")
-	g.P()
-}
-
-func generateServerOptionHandler(g *protogen.GeneratedFile, field, typ string) {
-	g.P("func With", field, "(handler ", g.QualifiedGoIdent(microPkg.Ident(typ)), ") ServerOption {")
-	g.P("return func(config *", g.QualifiedGoIdent(microConfig), ") {")
-	g.P("config.", field, " = handler")
-	g.P("}")
 	g.P("}")
 	g.P()
 }
