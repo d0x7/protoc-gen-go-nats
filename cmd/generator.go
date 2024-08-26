@@ -78,7 +78,7 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) {
 	g.P("//region Server")
 	g.P("type ", srvName, " interface {")
 	for _, method := range service.Methods {
-		g.P(method.Comments.Leading, methodSignature(g, method))
+		g.P(method.Comments.Leading, method.GoName, "(req *", g.QualifiedGoIdent(method.Input.GoIdent), ") (*", g.QualifiedGoIdent(method.Output.GoIdent), ", error)")
 	}
 	g.P("}")
 	g.P()
@@ -206,10 +206,38 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) {
 	g.P("type ", cliName, " interface {")
 	for _, method := range service.Methods {
 		g.AnnotateSymbol(cliName+"."+method.GoName, protogen.Annotation{Location: method.Location})
-		g.P(method.Comments.Leading, methodSignature(g, method))
+		g.P(method.Comments.Leading, method.GoName, "(req *", g.QualifiedGoIdent(method.Input.GoIdent), ", opts ...CallOption) (*", g.QualifiedGoIdent(method.Output.GoIdent), ", error)")
 	}
 	g.P("SetTimeout(", timeDuration, ")")
 	g.P("}")
+	g.P()
+
+	// Generate CallOption type and functions
+	g.P("//region CallOptions")
+	g.P("type CallOption func(*callOptions)")
+	g.P()
+	g.P("type callOptions struct {")
+	g.P("instanceID string")
+	g.P("}")
+	g.P()
+	g.P("func (opts *callOptions) hasInstanceID() bool {")
+	g.P("return opts.instanceID != \"\"")
+	g.P("}")
+	g.P()
+	g.P("func WithInstanceID(id string) CallOption {")
+	g.P("return func(opts *callOptions) {")
+	g.P("opts.instanceID = id")
+	g.P("}")
+	g.P("}")
+	g.P()
+	g.P("func process(opts ...CallOption) callOptions {")
+	g.P("options := callOptions{}")
+	g.P("for _, opt := range opts {")
+	g.P("opt(&options)")
+	g.P("}")
+	g.P("return options")
+	g.P("}")
+	g.P("//endregion")
 	g.P()
 
 	// Generate client struct implementation
@@ -252,9 +280,16 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) {
 
 	// Generate client methods
 	for _, method := range service.Methods {
-		g.P("func (c *", unexport(cliName), ") ", method.GoName, "(req *", g.QualifiedGoIdent(method.Input.GoIdent), ") (*", g.QualifiedGoIdent(method.Output.GoIdent), ", error) {")
+		g.P("func (c *", unexport(cliName), ") ", method.GoName, "(req *", g.QualifiedGoIdent(method.Input.GoIdent), ", opts ...CallOption) (*", g.QualifiedGoIdent(method.Output.GoIdent), ", error) {")
+		g.P("options := process(opts...)")
 		g.P("var response ", g.QualifiedGoIdent(method.Output.GoIdent))
-		g.P("err := c.handle(req, ", strconv.Quote(subjectName(service, method)), ", &response)")
+		g.P("var err error")
+		g.P()
+		g.P("if options.hasInstanceID() {")
+		g.P("err = c.handle(req, ", strconv.Quote(subjectName(service, method)+"."), " + options.instanceID, &response)")
+		g.P("} else {")
+		g.P("err = c.handle(req, ", strconv.Quote(subjectName(service, method)), ", &response)")
+		g.P("}")
 		g.P("return &response, err")
 		g.P("}")
 		g.P()
@@ -267,16 +302,8 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) {
 func generateService(g *protogen.GeneratedFile, service *protogen.Service) {
 	generateClient(g, service)
 	generateServer(g, service)
-	return
 }
 
 func subjectName(service *protogen.Service, method *protogen.Method) string {
 	return service.GoName + "." + method.GoName
-}
-
-func methodSignature(g *protogen.GeneratedFile, method *protogen.Method) string {
-	s := method.GoName
-	s += "(req *" + g.QualifiedGoIdent(method.Input.GoIdent) + ") "
-	s += "(*" + g.QualifiedGoIdent(method.Output.GoIdent) + ", error)"
-	return s
 }
