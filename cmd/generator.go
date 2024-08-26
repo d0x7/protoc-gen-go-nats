@@ -143,7 +143,7 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) {
 	// Generate service endpoints
 	g.P("// Register the service's methods")
 	for _, method := range service.Methods {
-		g.P("service.AddEndpoint(", strconv.Quote(subjectName(service, method)), ", ", g.QualifiedGoIdent(microPkg.Ident("HandlerFunc")), "(func(request ", g.QualifiedGoIdent(microRequest), ") {")
+		g.P("err = service.AddEndpoint(", strconv.Quote(method.GoName), ", ", g.QualifiedGoIdent(microPkg.Ident("HandlerFunc")), "(func(request ", g.QualifiedGoIdent(microRequest), ") {")
 		g.P("var req ", g.QualifiedGoIdent(method.Input.GoIdent))
 		g.P("if err := ", g.QualifiedGoIdent(protoUnmarshal), "(request.Data(), &req); err != nil {")
 		g.P("request.Error(", strconv.Quote("560"), ", ", strconv.Quote("Failed to unmarshal proto message"), ", []byte(err.Error()))")
@@ -167,7 +167,10 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) {
 		g.P("}")
 		g.P()
 		g.P("request.Respond(data)")
-		g.P("}))")
+		g.P("}), ", g.QualifiedGoIdent(microPkg.Ident("WithEndpointSubject")), "(", strconv.Quote(subjectName(service, method)), "))")
+		g.P("if err != nil {")
+		g.P("panic(err) // TODO: Update this to proper error handling")
+		g.P("}")
 		g.P()
 	}
 
