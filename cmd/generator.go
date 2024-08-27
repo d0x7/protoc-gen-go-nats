@@ -209,6 +209,23 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) {
 		g.P(method.Comments.Leading, method.GoName, "(req *", method.Input.GoIdent, ", opts ...CallOption) (*", method.Output.GoIdent, ", error)")
 	}
 	g.P("SetTimeout(", timeDuration, ")")
+	g.P("// ListInstances returns a list containing all instances of this service")
+	g.P("// This is a convenience method that calls Ping with no options")
+	g.P("ListInstances() ([]*Ping, error)")
+	g.P("// Ping sends a ping to either all instances or a specific instance of this service")
+	g.P("Ping(opts ...CallOption) ([]*Ping, error)")
+	g.P("// Stats returns the stats of either all instances or a specific instance of this service")
+	g.P("Stats(opts ...CallOption) ([]*micro.Stats, error)")
+	g.P("// Info returns the info of either all instances or a specific instance of this service")
+	g.P("Info(opts ...CallOption) ([]*micro.Info, error)")
+	g.P("}")
+	g.P()
+
+	// Generate Ping struct
+	g.P("type Ping struct {")
+	g.P(microPkg.Ident("ServiceIdentity"))
+	g.P("Type string")
+	g.P("RTT ", timeDuration)
 	g.P("}")
 	g.P()
 
@@ -255,6 +272,17 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) {
 	g.P("}")
 	g.P()
 
+	//		Generate ListInstances function
+	g.P("func (c *", unexport(cliName), ") ListInstances() ([]*Ping, error) {")
+	g.P("return c.Ping()")
+	g.P("}")
+	g.P()
+
+	// Generate Ping/Stats/Info functions
+	generateReqFunc(g, cliName, service.GoName, "Stats", microPkg.Ident("Stats"))
+	generateReqFunc(g, cliName, service.GoName, "Info", microPkg.Ident("Info"))
+	generateReqFunc(g, cliName, service.GoName, "Ping", "Ping")
+
 	// 		Generate handle function
 	g.P("func (c *", unexport(cliName), ") handle(req ", protoMessage, ", subject string, out ", protoMessage, ") error {")
 	g.P("data, err := ", protoMarshal, "(req)")
@@ -272,9 +300,69 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) {
 	g.P("}")
 	g.P()
 
+	// Generate request function
+	g.P("func request[T any](conn *", natsConn, ", timeout ", timeDuration, ", subject string, collector func([]byte, ", timeDuration, ") (*T, error)) ([]*T, error) {")
+	g.P("ctx, cancel := ", protogen.GoImportPath("context").Ident("WithTimeout"), "(", protogen.GoImportPath("context").Ident("Background"), "(), timeout)")
+	g.P("defer cancel()")
+	g.P()
+	g.P("timer := ", timePkg.Ident("NewTimer"), "(timeout)")
+	g.P("go func() {")
+	g.P("// Select whatever happens first")
+	g.P("select {")
+	g.P("// if timer runs out first, cancel the 5 second context")
+	g.P("case <-timer.C:")
+	g.P("cancel()")
+	g.P("// if context is done already, do nothing, maybe stop timer")
+	g.P("case <-ctx.Done():")
+	g.P("timer.Stop()")
+	g.P("return")
+	g.P("}")
+	g.P("}()")
+	g.P("var start ", timePkg.Ident("Time"))
+	g.P("res := []*T{}")
+	g.P("mu := ", protogen.GoImportPath("sync").Ident("Mutex"), "{}")
+	g.P("errs := make(chan error)")
+	g.P("sub, err := conn.Subscribe(conn.NewRespInbox(), func(msg *", natsPkg.Ident("Msg"), ") {")
+	g.P("mu.Lock()")
+	g.P("defer mu.Unlock()")
+	g.P()
+	g.P("rtt := ", timePkg.Ident("Since"), "(start)")
+	g.P("if msg.Header.Get(\"Status\") == \"503\" {")
+	g.P("errs <- ", natsPkg.Ident("ErrNoResponders"))
+	g.P("return")
+	g.P("}")
+	g.P()
+	g.P("timer.Reset(300 * ", timePkg.Ident("Millisecond"), ")")
+	g.P("if col, err := collector(msg.Data, rtt); err != nil {")
+	g.P("errs <- err")
+	g.P("} else {")
+	g.P("res = append(res, col)")
+	g.P("}")
+	g.P("})")
+	g.P("if err != nil {")
+	g.P("return nil, err")
+	g.P("}")
+	g.P("defer sub.Unsubscribe()")
+	g.P()
+	g.P("start = ", timePkg.Ident("Now"), "()")
+	g.P("err = conn.PublishRequest(subject, sub.Subject, nil)")
+	g.P("if err != nil {")
+	g.P("return nil, err")
+	g.P("}")
+	g.P()
+	g.P("select {")
+	g.P("case err = <-errs:")
+	g.P("return nil, err")
+	g.P("case <-ctx.Done():")
+	g.P("}")
+	g.P()
+	g.P("return res, nil")
+	g.P("}")
+	g.P()
+
 	// Generate NewClient function
 	g.P("func New", cliName, "(nc *", natsConn, ") ", cliName, " {")
-	g.P("return &", unexport(cliName), "{nc: nc, timeout: ", timePkg.Ident("Second"), " * 10}")
+	g.P("return &", unexport(cliName), "{nc: nc, timeout: ", timePkg.Ident("Second"), " * 5}")
 	g.P("}")
 	g.P()
 
@@ -296,6 +384,35 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) {
 	}
 
 	g.P("//endregion")
+	g.P()
+}
+
+func generateReqFunc(g *protogen.GeneratedFile, cliName, goName, method string, T any) {
+	g.P("func (c *", unexport(cliName), ") ", method, "(opts ...CallOption) ([]*", T, ", error) {")
+	g.P("options := process(opts...)")
+	g.P("var subject string")
+	g.P()
+	g.P("if options.hasInstanceID() {")
+	g.P("subject = ", protogen.GoImportPath("fmt").Ident("Sprintf"), "(\"%s.%s.%s.%s\", ", microPkg.Ident("APIPrefix"), ", ", microPkg.Ident("PingVerb"), ", ", strconv.Quote(goName), ", options.instanceID)")
+	g.P("} else {")
+	g.P("subject = ", protogen.GoImportPath("fmt").Ident("Sprintf"), "(\"%s.%s.%s\", ", microPkg.Ident("APIPrefix"), ", ", microPkg.Ident("PingVerb"), ", ", strconv.Quote(goName), ")")
+	g.P("}")
+
+	g.P("objs, err := request(c.nc, c.timeout, subject, func(data []byte, rtt ", timeDuration, ") (*", T, ", error) {")
+	g.P("var obj ", T)
+	g.P("if err := ", protogen.GoImportPath("encoding/json").Ident("Unmarshal"), "(data, &obj); err != nil {")
+	g.P("return nil, err")
+	g.P("}")
+	if method == "Ping" {
+		g.P("obj.RTT = rtt")
+	}
+	g.P("return &obj, nil")
+	g.P("})")
+	g.P("if err != nil {")
+	g.P("return nil, err")
+	g.P("}")
+	g.P("return objs, nil")
+	g.P("}")
 	g.P()
 }
 
