@@ -32,6 +32,14 @@ var (
 
 	protocErrMarshalling   = protocPkg.Ident("ErrMarshallingFailed")
 	protocErrUnmarshalling = protocPkg.Ident("ErrUnmarshallingFailed")
+
+	// reservedKeywords is a map of reserved keywords that cannot be used as method names
+	reservedKeywords = map[string]struct{}{
+		"listinstances": {},
+		"ping":          {},
+		"stats":         {},
+		"info":          {},
+	}
 )
 
 func protocVersion(gen *protogen.Plugin) string {
@@ -78,6 +86,16 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) {
 	g.P("//region Server")
 	g.P("type ", srvName, " interface {")
 	for _, method := range service.Methods {
+		if method.Desc.IsStreamingClient() || method.Desc.IsStreamingServer() {
+			// TODO: Skipping currently unsupported streaming methods for now
+			g.P("// ", method.GoName, " is a streaming method and is currently not supported")
+			continue
+		}
+		// Check if method.GoName is in reservedKeywords
+		if _, ok := reservedKeywords[strings.ToLower(method.GoName)]; ok {
+			g.P("// ", method.GoName, " is a reserved keyword and cannot be used as a method name")
+			continue
+		}
 		g.P(method.Comments.Leading, method.GoName, "(req *", method.Input.GoIdent, ") (*", method.Output.GoIdent, ", error)")
 	}
 	g.P("}")
@@ -153,6 +171,15 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) {
 	// Generate service endpoints
 	g.P("// Register the service's methods")
 	for _, method := range service.Methods {
+		if method.Desc.IsStreamingClient() || method.Desc.IsStreamingServer() {
+			// TODO: Skipping currently unsupported streaming methods for now
+			continue
+		}
+		// Check if method.GoName is in reservedKeywords
+		if _, ok := reservedKeywords[strings.ToLower(method.GoName)]; ok {
+			continue
+		}
+
 		handler := method.GoName + "Handler"
 		g.P(handler, " := ", microPkg.Ident("HandlerFunc"), "(func(request ", microRequest, ") {")
 		g.P("var req ", method.Input.GoIdent)
@@ -205,6 +232,16 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) {
 	g.AnnotateSymbol(cliName, protogen.Annotation{Location: service.Location}) // TODO: Find out when to annotate symbols
 	g.P("type ", cliName, " interface {")
 	for _, method := range service.Methods {
+		if method.Desc.IsStreamingClient() || method.Desc.IsStreamingServer() {
+			// TODO: Skipping currently unsupported streaming methods for now
+			g.P("// ", method.GoName, " is a streaming method and is currently not supported")
+			continue
+		}
+		// Check if method.GoName is in reservedKeywords
+		if _, ok := reservedKeywords[strings.ToLower(method.GoName)]; ok {
+			g.P("// ", method.GoName, " is a reserved keyword and cannot be used as a method name")
+			continue
+		}
 		g.AnnotateSymbol(cliName+"."+method.GoName, protogen.Annotation{Location: method.Location})
 		g.P(method.Comments.Leading, method.GoName, "(req *", method.Input.GoIdent, ", opts ...CallOption) (*", method.Output.GoIdent, ", error)")
 	}
@@ -368,6 +405,15 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) {
 
 	// Generate client methods
 	for _, method := range service.Methods {
+		if method.Desc.IsStreamingClient() || method.Desc.IsStreamingServer() {
+			// TODO: Skipping currently unsupported streaming methods for now
+			continue
+		}
+		// Check if method.GoName is in reservedKeywords
+		if _, ok := reservedKeywords[strings.ToLower(method.GoName)]; ok {
+			continue
+		}
+
 		g.P("func (c *", unexport(cliName), ") ", method.GoName, "(req *", method.Input.GoIdent, ", opts ...CallOption) (*", method.Output.GoIdent, ", error) {")
 		g.P("options := process(opts...)")
 		g.P("var response ", method.Output.GoIdent)
