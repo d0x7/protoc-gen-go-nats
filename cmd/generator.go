@@ -316,9 +316,9 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) {
 	g.P()
 
 	// Generate Ping/Stats/Info functions
-	generateReqFunc(g, cliName, service.GoName, "Stats", microPkg.Ident("Stats"))
-	generateReqFunc(g, cliName, service.GoName, "Info", microPkg.Ident("Info"))
-	generateReqFunc(g, cliName, service.GoName, "Ping", "Ping")
+	generateReqFunc(g, cliName, service.GoName, "Stats", microPkg.Ident("Stats"), microPkg.Ident("StatsVerb"))
+	generateReqFunc(g, cliName, service.GoName, "Info", microPkg.Ident("Info"), microPkg.Ident("InfoVerb"))
+	generateReqFunc(g, cliName, service.GoName, "Ping", "Ping", microPkg.Ident("PingVerb"))
 
 	// 		Generate handle function
 	g.P("func (c *", unexport(cliName), ") handle(req ", protoMessage, ", subject string, out ", protoMessage, ") error {")
@@ -433,15 +433,15 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) {
 	g.P()
 }
 
-func generateReqFunc(g *protogen.GeneratedFile, cliName, goName, method string, T any) {
+func generateReqFunc(g *protogen.GeneratedFile, cliName, goName, method string, T any, verb any) {
 	g.P("func (c *", unexport(cliName), ") ", method, "(opts ...CallOption) ([]*", T, ", error) {")
 	g.P("options := process(opts...)")
 	g.P("var subject string")
 	g.P()
 	g.P("if options.hasInstanceID() {")
-	g.P("subject = ", protogen.GoImportPath("fmt").Ident("Sprintf"), "(\"%s.%s.%s.%s\", ", microPkg.Ident("APIPrefix"), ", ", microPkg.Ident("PingVerb"), ", ", strconv.Quote(goName), ", options.instanceID)")
+	g.P("subject = ", protogen.GoImportPath("fmt").Ident("Sprintf"), "(\"%s.%s.%s.%s\", ", microPkg.Ident("APIPrefix"), ", ", verb, ", ", strconv.Quote(goName), ", options.instanceID)")
 	g.P("} else {")
-	g.P("subject = ", protogen.GoImportPath("fmt").Ident("Sprintf"), "(\"%s.%s.%s\", ", microPkg.Ident("APIPrefix"), ", ", microPkg.Ident("PingVerb"), ", ", strconv.Quote(goName), ")")
+	g.P("subject = ", protogen.GoImportPath("fmt").Ident("Sprintf"), "(\"%s.%s.%s\", ", microPkg.Ident("APIPrefix"), ", ", verb, ", ", strconv.Quote(goName), ")")
 	g.P("}")
 
 	g.P("objs, err := request(c.nc, c.timeout, subject, func(data []byte, rtt ", timeDuration, ") (*", T, ", error) {")
