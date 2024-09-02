@@ -1,4 +1,4 @@
-package protoc_plugin
+package go_nats
 
 import (
 	"github.com/nats-io/nats.go"

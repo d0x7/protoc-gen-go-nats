@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"google.golang.org/protobuf/compiler/protogen"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/descriptorpb"
 	"strconv"
 	"strings"
 	"xiam.li/meta"
@@ -16,7 +14,7 @@ const (
 	timePkg   = protogen.GoImportPath("time")
 	slogPkg   = protogen.GoImportPath("log/slog")
 	protoPkg  = protogen.GoImportPath("google.golang.org/protobuf/proto")
-	protocPkg = protogen.GoImportPath("gitea.xiam.li/Hydria/protoc-gen-go-nats")
+	goNatsPkg = protogen.GoImportPath("xiam.li/go-nats")
 )
 
 var (
@@ -127,15 +125,15 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) {
 
 	g.P("// Check if the service implements any of the handler interfaces")
 	g.P("// but do it before applying options, so these can still override the handlers")
-	g.P("if statsHandler, isStatsHandler := impl.(", protocPkg.Ident("StatsHandler"), "); isStatsHandler {")
+	g.P("if statsHandler, isStatsHandler := impl.(", goNatsPkg.Ident("StatsHandler"), "); isStatsHandler {")
 	g.P("config.StatsHandler = statsHandler.Stats")
 	g.P(debugLogger, "(\"Service implements StatsHandler; using service's Stats method\")")
 	g.P("}")
-	g.P("if doneHandler, isDoneHandler := impl.(", protocPkg.Ident("DoneHandler"), "); isDoneHandler {")
+	g.P("if doneHandler, isDoneHandler := impl.(", goNatsPkg.Ident("DoneHandler"), "); isDoneHandler {")
 	g.P("config.DoneHandler = doneHandler.Done")
 	g.P(debugLogger, "(\"Service implements DoneHandler; using service's Done method\")")
 	g.P("}")
-	g.P("if errHandler, isErrHandler := impl.(", protocPkg.Ident("ErrHandler"), "); isErrHandler {")
+	g.P("if errHandler, isErrHandler := impl.(", goNatsPkg.Ident("ErrHandler"), "); isErrHandler {")
 	g.P("config.ErrorHandler = errHandler.Err")
 	g.P(debugLogger, "(\"Service implements ErrHandler; using service's Err method\")")
 	g.P("}")

@@ -1,4 +1,4 @@
-module gitea.xiam.li/Hydria/protoc-gen-go-nats
+module xiam.li/go-nats
 
 go 1.23.0
 
