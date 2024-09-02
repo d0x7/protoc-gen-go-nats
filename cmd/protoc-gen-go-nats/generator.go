@@ -447,5 +447,5 @@ func generateService(g *protogen.GeneratedFile, service *protogen.Service) {
 }
 
 func subjectName(service *protogen.Service, method *protogen.Method) string {
-	return service.GoName + "." + method.GoName
+	return "service." + service.GoName + "." + method.GoName
 }
