@@ -27,9 +27,6 @@ var (
 	protoMarshal   = protoPkg.Ident("Marshal")
 	protoUnmarshal = protoPkg.Ident("Unmarshal")
 
-	protocErrMarshalling   = protocPkg.Ident("ErrMarshallingFailed")
-	protocErrUnmarshalling = protocPkg.Ident("ErrUnmarshallingFailed")
-
 	// reservedKeywords is a map of reserved keywords that cannot be used as method names
 	reservedKeywords = map[string]struct{}{
 		"listinstances": {},
@@ -173,8 +170,8 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) {
 		g.P()
 		g.P("response, err := impl.", method.GoName, "(&req)")
 		g.P("if err != nil {")
-		g.P("if natsErr, ok := err.(*", protocPkg.Ident("NATSError"), "); ok {")
-		g.P("natsErr.RespondWith(request)")
+		g.P("if serverErr, ok := err.(*", goNatsPkg.Ident("ServerError"), "); ok {")
+		g.P("serverErr.RespondWith(request)")
 		g.P("} else {")
 		g.P("request.Error(", strconv.Quote("500"), ", ", strconv.Quote("Internal server error"), ", []byte(err.Error()))")
 		g.P("}")
@@ -307,14 +304,14 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) {
 	g.P("func (c *", unexport(cliName), ") handle(req ", protoMessage, ", subject string, out ", protoMessage, ") error {")
 	g.P("data, err := ", protoMarshal, "(req)")
 	g.P("if err != nil {")
-	g.P("return ", protocErrMarshalling)
+	g.P("return ", goNatsPkg.Ident("ErrMarshallingFailed"))
 	g.P("}")
 	g.P("msg, err := c.nc.Request(subject, data, c.timeout)")
 	g.P("if err != nil {")
 	g.P("return err")
 	g.P("}")
 	g.P("if err := ", protoUnmarshal, "(msg.Data, out); err != nil {")
-	g.P("return ", protocErrUnmarshalling)
+	g.P("return ", goNatsPkg.Ident("ErrUnmarshallingFailed"))
 	g.P("}")
 	g.P("return nil")
 	g.P("}")

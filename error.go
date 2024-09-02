@@ -12,52 +12,42 @@ var (
 	ErrUnmarshallingFailed = errors.New("Failed to unmarshal proto message")
 )
 
-// NATS Status Codes
-// NATS status codes are used to represent the status of a NATS message.
-// These codes are based on HTTP status codes, and those are not included here.
-// We're trying to avoid any known HTTP status codes to prevent confusion, regardless if official or unofficial.
-// For example, Shopify, Cloudflare, Microsoft and others are using some
-// codes within the 520-559 range, which is why ours start from 560.
-var (
-	StatusProtobufProcessingFailed = "560"
-)
-
-// NATS Error
-
-type NATSError struct {
+// ServerError is a custom error type that can be used to return
+// a statuscode along with an error description and additional to the client.
+type ServerError struct {
 	Code, Description string
 	Wrapped           error
 	Headers           map[string][]string
 }
 
-func (n NATSError) Error() string {
+func (n ServerError) Error() string {
 	if n.Wrapped != nil {
 		return n.Description + ": " + n.Wrapped.Error()
 	}
 	return n.Description
 }
 
-func (n NATSError) Cause() error {
+func (n ServerError) Cause() error {
 	return n.Wrapped
 }
 
 // GetWrapped returns the wrapped error as a byte slice, or nil if there is no wrapped error.
 // It's therefore safe to be used directly in a NATS response, for example, like this:
 // ```request.Error(natsErr.code, natsErr.description, natsErr.GetWrapped())```
-func (n NATSError) GetWrapped() []byte {
+func (n ServerError) GetWrapped() []byte {
 	if n.Wrapped != nil {
 		return []byte(n.Wrapped.Error())
 	}
 	return nil
 }
 
-func (n NATSError) ensureHeader() {
+func (n ServerError) ensureHeader() {
 	if n.Headers == nil {
 		n.Headers = make(nats.Header)
 	}
 }
 
-func (n NATSError) GetOptHeaders() micro.RespondOpt {
+func (n ServerError) GetOptHeaders() micro.RespondOpt {
 	if n.Headers == nil || len(n.Headers) == 0 {
 		return func(m *nats.Msg) {}
 	}
@@ -74,38 +64,38 @@ func (n NATSError) GetOptHeaders() micro.RespondOpt {
 	}
 }
 
-func (n NATSError) RespondWith(req micro.Request) error {
+func (n ServerError) RespondWith(req micro.Request) error {
 	return req.Error(n.Code, n.Description, n.GetWrapped(), n.GetOptHeaders())
 }
 
-func (n NATSError) AddHeader(header, value string) NATSError {
+func (n ServerError) AddHeader(header, value string) ServerError {
 	n.ensureHeader()
 	n.Headers[header] = append(n.Headers[header], value)
 	return n
 }
 
-func (n NATSError) SetHeader(header, value string) NATSError {
+func (n ServerError) SetHeader(header, value string) ServerError {
 	n.ensureHeader()
 	n.Headers[header] = []string{value}
 	return n
 }
 
-func (n NATSError) GetHeaders() micro.Headers {
+func (n ServerError) GetHeaders() micro.Headers {
 	n.ensureHeader()
 	return n.Headers
 }
 
-func (n NATSError) WithHeaders(headers map[string][]string) error {
+func (n ServerError) WithHeaders(headers map[string][]string) error {
 	n.Headers = headers
 	return n
 }
 
-func NewNATSErr(code, description string) NATSError {
-	return WrapNATSErr(nil, code, description)
+func NewServerErr(code, description string) ServerError {
+	return WrapServerErr(nil, code, description)
 }
 
-func WrapNATSErr(err error, code, description string) NATSError {
-	return NATSError{
+func WrapServerErr(err error, code, description string) ServerError {
+	return ServerError{
 		Code:        code,
 		Description: description,
 		Wrapped:     err,
