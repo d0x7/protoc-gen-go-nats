@@ -7,9 +7,6 @@ import (
 	"google.golang.org/protobuf/types/pluginpb"
 	"os"
 	"path/filepath"
-	"strings"
-	"time"
-	"xiam.li/meta"
 )
 
 func main() {
@@ -18,7 +15,7 @@ func main() {
 	flag.BoolVar(&showVersion, "v", false, "print the version and exit")
 	flag.Parse()
 	if showVersion {
-		fmt.Printf("%s %s (%s), built on %s\n", filepath.Base(os.Args[0]), meta.VersionOr("v0.0.0-dev+dirty"), meta.ShortSHAOr(strings.Repeat("x", 40)), meta.DateOr(time.Now()))
+		fmt.Printf("%s %s\n", filepath.Base(os.Args[0]), version)
 		return
 	}
 

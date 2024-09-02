@@ -1,14 +1,23 @@
 version: 3
 
 tasks:
+  update-version:
+    desc: Update the version
+    cmd: |
+      echo "package main
+      var version = \"$(gitversion)\"" > cmd/protoc-gen-go-nats/version.go
   build:
     desc: Build the plugin
+    deps:
+      - update-version
     cmds:
-      - go build -ldflags "-X 'xiam.li/meta.version=$(gitversion)' -X 'xiam.li/meta.sha=$(git rev-parse HEAD)' -X 'xiam.li/meta.date=$(date -R)'" -o protoc-gen-go-nats cmd/*.go
+      - go build -o protoc-gen-go-nats cmd/protoc-gen-go-nats/*.go
   run:
     desc: Run the plugin
+    deps:
+      - update-version
     cmds:
-      - go run -ldflags "-X 'xiam.li/meta.version=$(gitversion)' -X 'xiam.li/meta.sha=$(git rev-parse HEAD)' -X 'xiam.li/meta.date=$(date -R)'" cmd/*.go -v
+      - go run cmd/protoc-gen-go-nats/*.go -v
   install:
     desc: Install the plugin
     deps:
