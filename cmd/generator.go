@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	pb "gitea.xiam.li/Hydria/protoc-gen-go-nats/proto"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -121,22 +120,8 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) {
 	// Generate NewServer function
 	g.P("func New", srvName, "(nc *", natsConn, ", impl ", srvName, ", opts ...ServerOption) ", microPkg.Ident("Service"), " {")
 	g.P("config := ", microConfig, "{")
-
-	if serviceOptions := service.Desc.Options().(*descriptorpb.ServiceOptions); serviceOptions != nil {
-		natsOptions := proto.GetExtension(serviceOptions, pb.E_Nats).(*pb.NATSServiceOptions)
-		if natsOptions.GetName() == "" || natsOptions.GetVersion() == "" {
-			panic("Name and Version are required for NATSServiceOptions")
-		}
-		g.P("Name: ", strconv.Quote(natsOptions.GetName())+",")
-		g.P("Version: ", strconv.Quote(natsOptions.GetVersion())+",")
-		if natsOptions.GetDescription() != "" {
-			g.P("Description: ", strconv.Quote(natsOptions.GetDescription())+",")
-		}
-	} else {
-		g.P("Name: ", strconv.Quote(service.GoName), ",")
-		g.P("Version: ", strconv.Quote("1.0.0-DEV"), ",") // TODO: make this use actual option nats_in
-		g.P("Description: ", strconv.Quote("Using default version and auto derived name - please manually set details using NATSServiceOptions service in protobuf file."), ",")
-	}
+	g.P("Name: ", strconv.Quote(service.GoName), ",")
+	g.P("Version: ", strconv.Quote("1.0.0"), ",")
 	g.P("}")
 	g.P()
 
