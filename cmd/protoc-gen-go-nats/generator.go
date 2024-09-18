@@ -170,7 +170,7 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) {
 		g.P("response, err := impl.", method.GoName, "(&req)")
 		g.P("if err != nil {")
 		g.P("if serverErr, ok := err.(*", goNatsPkg.Ident("ServerError"), "); ok {")
-		g.P("serverErr.RespondWith(request)")
+		g.P("request.Error(serverErr.Code, serverErr.Description, serverErr.GetWrapped(), serverErr.GetOptHeaders())")
 		g.P("} else {")
 		g.P("request.Error(", strconv.Quote("500"), ", ", strconv.Quote("Internal server error"), ", []byte(err.Error()))")
 		g.P("}")

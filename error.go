@@ -64,10 +64,6 @@ func (n ServerError) GetOptHeaders() micro.RespondOpt {
 	}
 }
 
-func (n ServerError) RespondWith(req micro.Request) error {
-	return req.Error(n.Code, n.Description, n.GetWrapped(), n.GetOptHeaders())
-}
-
 func (n ServerError) AddHeader(header, value string) ServerError {
 	n.ensureHeader()
 	n.Headers[header] = append(n.Headers[header], value)
