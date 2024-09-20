@@ -1,6 +1,7 @@
 package go_nats
 
 import (
+	"fmt"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/micro"
 	"github.com/pkg/errors"
@@ -11,6 +12,36 @@ var (
 	ErrMarshallingFailed   = errors.New("Failed to marshal proto message")
 	ErrUnmarshallingFailed = errors.New("Failed to unmarshal proto message")
 )
+
+// ServiceError is returned when the server returns an error instead of the expected message.
+type ServiceError struct {
+	Code, Description, Details string
+}
+
+func (e ServiceError) Error() string {
+	if e.Details == "" {
+		return fmt.Sprintf("%s: %s", e.Code, e.Description)
+	}
+	return fmt.Sprintf("%s: %s (%s)", e.Code, e.Description, e.Details)
+}
+
+func (e ServiceError) Is(target error) bool {
+	var se ServiceError
+	ok := errors.As(target, &se)
+	return ok
+}
+
+func IsServiceError(err error) bool {
+	var se ServiceError
+	ok := errors.As(err, &se)
+	return ok
+}
+
+func AsServiceError(err error) (ServiceError, bool) {
+	var se ServiceError
+	ok := errors.As(err, &se)
+	return se, ok
+}
 
 // ServerError is a custom error type that can be used to return
 // a statuscode along with an error description and additional to the client.

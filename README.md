@@ -130,6 +130,26 @@ serverErr.AddHeader("err-details", "Username is not in the database")
 return nil, serverErr
 ```
 
+On the client side they are received as `ServiceError` (Important: ServiceError, not ServerError).
+
+```go
+_, err := cli.HelloWorld(&pb.HelloWorldRequest{Name: "John Doe"})
+if err != nil {
+    serviceErr, isSrvErr := go_nats.AsServiceError(err)
+    if isSrvErr {
+        fmt.Printf("Got a service error with code %s: %s\n", serviceErr.Code, serviceErr.Description)
+    } else {
+        fmt.Println("Other different error, usually networking related or an issue with unmarshalling the response")
+    }
+}
+```
+
+You can also use `go_nats.IsServiceError(err)` to check if an error is a ServiceError.
+
+There's also an `Details` field in the ServiceError struct, but that's only used when
+the server, instead of returning a proper ServerError, only returns a generic error.
+In that case, the result from that error's `Error()` will end up in the `Details` field.
+
 ### Streaming
 
 Streaming is not yet supported, but is planned for the future.
