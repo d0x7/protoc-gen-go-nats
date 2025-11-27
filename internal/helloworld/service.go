@@ -137,25 +137,29 @@ func WithServerInterceptors(interceptors ...ServerInterceptor) ServerOption {
 	}
 }
 
+type HelloWorldServiceId interface {
+	SetHelloWorldServiceId(string)
+}
+
 func NewHelloWorldServiceNATSServer(nc *nats_go.Conn, server HelloWorldServiceNATSServer, opts ...ServerOption) micro.Service {
-	// Parse options
+	service, options, err := impl.NewService("HelloWorldService", nc, server)
+	if err != nil {
+		panic(err) // TODO: Update this to proper error handling
+	}
 	so := &serverOptions{}
 	for _, opt := range opts {
 		opt(so)
 	}
-
-	// (Existing impl initialization logic omitted for brevity, assuming impl.NewService handles basic setup)
-	service, _, err := impl.NewService("HelloWorldService", nc, server)
-	if err != nil {
-		panic(err)
+	if setId, ok := server.(HelloWorldServiceId); ok {
+		setId.SetHelloWorldServiceId(service.Info().ID)
 	}
+	_newHelloWorldServiceServer(service, server, options, so.interceptors...)
 
-	_newHelloWorldServiceServer(service, server, so.interceptors)
 	return service
 }
 
-func _newHelloWorldServiceServer(service micro.Service, server HelloWorldServiceNATSServer, interceptors []ServerInterceptor) {
-
+func _newHelloWorldServiceServer(service micro.Service, server HelloWorldServiceNATSServer, opts *impl.ServerOpts, interceptors ...ServerInterceptor) {
+	var err error
 	// Define the NATS Micro Handler
 	HelloWorldHandler := micro.HandlerFunc(func(request micro.Request) {
 		// 1. Create the Context
@@ -224,9 +228,14 @@ func _newHelloWorldServiceServer(service micro.Service, server HelloWorldService
 		request.Respond(data)
 	})
 
-	// Add Endpoint
-	// Note: You might want to pass middlewares for validation here too, but that's separate
-	service.AddEndpoint("HelloWorld", HelloWorldHandler)
+	err = service.AddEndpoint("HelloWorld", HelloWorldHandler, opts.Subject("service.HelloWorldService.HelloWorld", ""))
+	if err != nil {
+		panic(err) // TODO: Update this to proper error handling
+	}
+	err = service.AddEndpoint("HelloWorld-Direct", HelloWorldHandler, opts.Subject("service.HelloWorldService.HelloWorld", service.Info().ID))
+	if err != nil {
+		panic(err) // TODO: Update this to proper error handling
+	}
 }
 
 //endregion
