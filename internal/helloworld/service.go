@@ -22,11 +22,11 @@ type HelloWorldServiceNATSClient interface {
 
 type helloWorldServiceNATSClient struct {
 	nc           *nats_go.Conn
-	interceptors []protonats.ClientInterceptor
+	interceptors []ClientInterceptor
 }
 
 // 2. Client Constructor now accepts Interceptors
-func NewHelloWorldServiceNATSClient(nc *nats_go.Conn, interceptors ...protonats.ClientInterceptor) HelloWorldServiceNATSClient {
+func NewHelloWorldServiceNATSClient(nc *nats_go.Conn, interceptors ...ClientInterceptor) HelloWorldServiceNATSClient {
 	return &helloWorldServiceNATSClient{
 		nc:           nc,
 		interceptors: interceptors,
@@ -69,7 +69,7 @@ func (c *helloWorldServiceNATSClient) HelloWorld(ctx context.Context, req *Hello
 		}
 
 		// IMPORTANT: Inject Headers from Context (e.g. set by OpenTelemetry)
-		if outgoingHeaders := protonats.HeadersFromOutgoingContext(ctx); outgoingHeaders != nil {
+		if outgoingHeaders := HeadersFromOutgoingContext(ctx); outgoingHeaders != nil {
 			for k, v := range outgoingHeaders {
 				for _, val := range v {
 					msg.Header.Add(k, val)
@@ -127,11 +127,11 @@ type HelloWorldServiceNATSServer interface {
 type ServerOption func(*serverOptions)
 
 type serverOptions struct {
-	interceptors []protonats.ServerInterceptor
+	interceptors []ServerInterceptor
 	// other options...
 }
 
-func WithServerInterceptors(interceptors ...protonats.ServerInterceptor) ServerOption {
+func WithServerInterceptors(interceptors ...ServerInterceptor) ServerOption {
 	return func(o *serverOptions) {
 		o.interceptors = append(o.interceptors, interceptors...)
 	}
@@ -154,7 +154,7 @@ func NewHelloWorldServiceNATSServer(nc *nats_go.Conn, server HelloWorldServiceNA
 	return service
 }
 
-func _newHelloWorldServiceServer(service micro.Service, server HelloWorldServiceNATSServer, interceptors []protonats.ServerInterceptor) {
+func _newHelloWorldServiceServer(service micro.Service, server HelloWorldServiceNATSServer, interceptors []ServerInterceptor) {
 
 	// Define the NATS Micro Handler
 	HelloWorldHandler := micro.HandlerFunc(func(request micro.Request) {
@@ -164,7 +164,7 @@ func _newHelloWorldServiceServer(service micro.Service, server HelloWorldService
 
 		// 2. Extract Headers and put them into Context (Crucial for Tracing extraction!)
 		// The request.Headers() contains the SpanID sent by client
-		ctx = protonats.NewContextWithHeaders(ctx, request.Headers())
+		ctx = NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
 
 		// 3. Unmarshal (We must do this before calling interceptors so they see the object)
 		var req HelloWorldRequest
@@ -174,7 +174,7 @@ func _newHelloWorldServiceServer(service micro.Service, server HelloWorldService
 		}
 
 		// 4. Define the Method Info
-		info := &protonats.MethodInfo{
+		info := &MethodInfo{
 			Subject:    request.Subject(),
 			FullMethod: "service.HelloWorldService.HelloWorld",
 		}
