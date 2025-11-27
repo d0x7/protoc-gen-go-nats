@@ -2,12 +2,13 @@ package test
 
 import (
 	"fmt"
-	"github.com/nats-io/nats-server/v2/server"
-	natstest "github.com/nats-io/nats-server/v2/test"
-	"github.com/nats-io/nats.go"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/nats-io/nats-server/v2/server"
+	natstest "github.com/nats-io/nats-server/v2/test"
+	"github.com/nats-io/nats.go"
 )
 
 type NatsInstance struct {

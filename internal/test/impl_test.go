@@ -3,6 +3,7 @@ package test
 import (
 	"fmt"
 	"time"
+
 	"xiam.li/protonats/go/protonats"
 )
 

@@ -291,9 +291,10 @@ func (i *helloWorldImpl) SetHelloWorldServiceId(s string) {
 
 If you use a consensus algorithm like Raft, you can use the `protonats.consensus_Target` option to mark methods to be used only by the leader or follower.
 These methods will be generated onto a separate interface, which is composited onto the main service interface.
-By default, the normal `NewYourServiceNATSServer` method will still register all methods, regardless of it the target is leader or follower, but you can use the specialized `NewYourServiceNATSLeaderServer` or `NewYourServiceNATSFollowerServer` methods to only register a server for either methods - or you can use the normal `[...]NATSServer` method and pass either a `protonats.WithoutLeaderFns()` or `protonats.WithoutFollowerFns()` to disable the registration of these, but still allow for the normal methods to be registered.
+By default, the normal `NewYourServiceNATSServer` method will still register all methods, regardless of it the target is leader or follower, but you can use the specialized `NewYourServiceNATSLeaderServer` or `NewYourServiceNATSFollowerServer` methods to only register a server for either methods - or you can use the normal `[...]NATSServer` method and pass either a `protonats.WithoutLeaderFns()` or `protonats.WithoutFollowerFns()` to disable the registration of these, but still allow for the
+normal methods to be registered.
 
-Methods marked with a consensus can still use the broadcasting flag, which will for example make a call to that method broadcast to all followers, instead of only one follower. 
+Methods marked with a consensus can still use the broadcasting flag, which will for example make a call to that method broadcast to all followers, instead of only one follower.
 
 To mark methods with a consensus target, use the `protonats.consensus_target` option in the method definition:
 

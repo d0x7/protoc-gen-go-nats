@@ -3,10 +3,11 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/nats-io/nats.go/micro"
-	"google.golang.org/protobuf/compiler/protogen"
 	"strconv"
 	"strings"
+
+	"github.com/nats-io/nats.go/micro"
+	"google.golang.org/protobuf/compiler/protogen"
 	"xiam.li/protonats/go/plugin"
 	"xiam.li/protonats/go/protonats"
 )

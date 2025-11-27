@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/nats-io/nats.go"
 	"regexp"
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/nats-io/nats.go"
 	"xiam.li/protonats/go/protonats"
 )
 

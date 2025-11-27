@@ -1,8 +1,9 @@
 package test
 
 import (
-	"github.com/nats-io/nats.go/micro"
 	"testing"
+
+	"github.com/nats-io/nats.go/micro"
 	"xiam.li/protonats/go/impl"
 )
 
