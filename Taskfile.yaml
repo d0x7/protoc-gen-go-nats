@@ -35,3 +35,7 @@ tasks:
     desc: Generate protobuf files
     cmds:
       - fd -t f -e proto . internal/test -x protoc -I$(go list -m -f '{{ "{{ .Dir }}" }}' xiam.li/protonats)/proto -I internal/test --go_out=internal/test --go_opt=paths=source_relative --go-nats_out=internal/test --go-nats_opt=paths=source_relative {}
+  helloworld:
+    desc: Generate protobuf files for helloworld example
+    cmds:
+      - protoc -I$(go list -m -f '{{ "{{ .Dir }}" }}' xiam.li/protonats)/proto -I internal/helloworld --go_out=internal/helloworld --go_opt=paths=source_relative --go-nats_out=internal/helloworld --go-nats_opt=paths=source_relative internal/helloworld/helloworld.proto
