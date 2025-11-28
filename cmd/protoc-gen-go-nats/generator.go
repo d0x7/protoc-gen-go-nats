@@ -408,13 +408,13 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 	g.P("SetTimeout(", timeDuration, ")")
 	g.P("// ListInstances returns a list containing all instances of this service")
 	g.P("// This is a convenience method that calls ", goNatsPkg.Ident("Ping"), " with no options")
-	g.P("ListInstances() ([]*", goNatsPkg.Ident("Ping"), ", error)")
+	g.P("ListInstances(ctx ", ctx, ") ([]*", goNatsPkg.Ident("Ping"), ", error)")
 	g.P("// Ping sends a ping to either all instances or a specific instance of this service")
-	g.P("Ping(opts ...", goNatsPkg.Ident("CallOption"), ") ([]*", goNatsPkg.Ident("Ping"), ", error)")
+	g.P("Ping(ctx ", ctx, ", opts ...", goNatsPkg.Ident("CallOption"), ") ([]*", goNatsPkg.Ident("Ping"), ", error)")
 	g.P("// Stats returns the stats of either all instances or a specific instance of this service")
-	g.P("Stats(opts ...", goNatsPkg.Ident("CallOption"), ") ([]*micro.Stats, error)")
+	g.P("Stats(ctx ", ctx, ", opts ...", goNatsPkg.Ident("CallOption"), ") ([]*micro.Stats, error)")
 	g.P("// Info returns the info of either all instances or a specific instance of this service")
-	g.P("Info(opts ...", goNatsPkg.Ident("CallOption"), ") ([]*micro.Info, error)")
+	g.P("Info(ctx ", ctx, ", opts ...", goNatsPkg.Ident("CallOption"), ") ([]*micro.Info, error)")
 	g.P("}")
 	g.P()
 
@@ -435,8 +435,8 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 	g.P()
 
 	// Generate ListInstances function
-	g.P("func (c *", unexport(cliName), ") ListInstances() ([]*", goNatsPkg.Ident("Ping"), ", error) {")
-	g.P("return c.Ping()")
+	g.P("func (c *", unexport(cliName), ") ListInstances(ctx ", ctx, ") ([]*", goNatsPkg.Ident("Ping"), ", error) {")
+	g.P("return c.Ping(ctx)")
 	g.P("}")
 	g.P()
 
@@ -513,11 +513,11 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 	g.P()
 
 	// Generate request function
-	g.P("func request[T any](conn *", natsConn, ", timeout ", timeDuration, ", subject string, data []byte, collector func([]byte, ", timeDuration, ") (*T, error), opts ...", goNatsPkg.Ident("CallOption"), ") ([]*T, []", goNatsPkg.Ident("ServiceError"), ", error) {")
+	g.P("func request[T any](ctx ", ctx, ", conn *", natsConn, ", timeout ", timeDuration, ", subject string, data []byte, collector func([]byte, ", timeDuration, ") (*T, error), opts ...", goNatsPkg.Ident("CallOption"), ") ([]*T, []", goNatsPkg.Ident("ServiceError"), ", error) {")
 	g.P("options := ", goNatsImplPkg.Ident("ProcessCallOptions"), "(opts...)")
 	g.P("timeout = options.GetTimeoutOr(timeout)")
 	g.P()
-	g.P("ctx, cancel := ", protogen.GoImportPath("context").Ident("WithTimeout"), "(options.Ctx(), timeout)")
+	g.P("ctx, cancel := ", protogen.GoImportPath("context").Ident("WithTimeout"), "(ctx, timeout)")
 	g.P("defer cancel()")
 	g.P()
 	g.P("timer := ", timePkg.Ident("NewTimer"), "(timeout)")
@@ -692,8 +692,8 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 }
 
 func generateReqFunc(g *protogen.GeneratedFile, cliName, goName, method string, T any, verb micro.Verb) {
-	g.P("func (c *", unexport(cliName), ") ", method, "(opts ...", goNatsPkg.Ident("CallOption"), ") ([]*", T, ", error) {")
-	g.P("objs, _, err := request(c.nc, c.timeout, ", strconv.Quote(fmt.Sprintf("%s.%s.%s", micro.APIPrefix, verb, goName)), ", nil, func(data []byte, rtt ", timeDuration, ") (*", T, ", error) {")
+	g.P("func (c *", unexport(cliName), ") ", method, "(ctx ", ctx, ", opts ...", goNatsPkg.Ident("CallOption"), ") ([]*", T, ", error) {")
+	g.P("objs, _, err := request(ctx, c.nc, c.timeout, ", strconv.Quote(fmt.Sprintf("%s.%s.%s", micro.APIPrefix, verb, goName)), ", nil, func(data []byte, rtt ", timeDuration, ") (*", T, ", error) {")
 	g.P("var obj ", T)
 	g.P("if err := ", protogen.GoImportPath("encoding/json").Ident("Unmarshal"), "(data, &obj); err != nil {")
 	g.P("return nil, err")
