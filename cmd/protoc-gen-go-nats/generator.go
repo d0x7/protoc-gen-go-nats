@@ -402,7 +402,7 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 		if broadcasting {
 			g.P(method.Comments.Leading, method.GoName, "(", req, "opts ...", goNatsPkg.Ident("CallOption"), ") (", resp, "[]", goNatsPkg.Ident("ServiceError"), ", error)")
 		} else {
-			g.P(method.Comments.Leading, method.GoName, "(", req, "opts ...", goNatsPkg.Ident("CallOption"), ") (", resp, "error)")
+			g.P(method.Comments.Leading, method.GoName, "(ctx ", ctx, ", ", req, "opts ...", goNatsPkg.Ident("CallOption"), ") (", resp, "error)")
 		}
 	}
 	g.P("SetTimeout(", timeDuration, ")")
@@ -422,6 +422,7 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 	g.P("type ", unexport(cliName), " struct {")
 	g.P("nc *", natsConn)
 	g.P("timeout ", timeDuration)
+	g.P("interceptor ", goNatsPkg.Ident("UnaryClientInterceptor"))
 	g.P("}")
 	g.P()
 
@@ -444,62 +445,70 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 	generateReqFunc(g, cliName, service.GoName, "Info", microPkg.Ident("Info"), micro.InfoVerb)
 	generateReqFunc(g, cliName, service.GoName, "Ping", goNatsPkg.Ident("Ping"), micro.PingVerb)
 
-	// Generate handle with retry function
-	g.P("func (c *", unexport(cliName), ") handleWithRetry(req ", protoMessage, ", subject string, out ", protoMessage, ", opts ...", goNatsPkg.Ident("CallOption"), ") (err error) {")
-	g.P("options := ", goNatsImplPkg.Ident("ProcessCallOptions"), "(opts...)")
-	g.P("timeout := options.GetTimeoutOr(c.timeout)")
-	g.P()
-	g.P("var tries int")
-	g.P("for {")
-	g.P("err = c.handle(options.Context, req, options.Subject(subject), out, timeout)")
-	g.P("if err == nil || !errors.Is(err, ", natsPkg.Ident("ErrNoResponders"), ") {")
-	g.P("return")
-	g.P("}")
-	g.P("tries++")
-	g.P("if !options.ShouldRetry() {")
-	g.P("return")
-	g.P("}")
-	g.P("if options.Context != nil && options.Context.Err() != nil {")
-	g.P("err = ", errorsPkg.Ident("Join"), "(err, options.Context.Err())")
-	g.P("return")
-	g.P("}")
-	g.P("if tries >= options.Retries {")
-	g.P("err = ", errorsPkg.Ident("New"), "(", strconv.Quote("Failed to call service after max tries: "), "+ err.Error())")
-	g.P("return")
-	g.P("}")
-	g.P("time.Sleep(options.RetryDelay)")
-	g.P("}")
-	g.P("}")
-
 	// Generate handle function
-	g.P("func (c *", unexport(cliName), ") handle(ctx ", contextPkg.Ident("Context"), ", req ", protoMessage, ", subject string, out ", protoMessage, ", timeout ", timeDuration, ") (err error) {")
-	g.P("var data []byte")
-	g.P("if req != nil {")
-	g.P("if data, err = ", protoMarshal, "(req); err != nil {")
+	g.P("func (c *", unexport(cliName), ") handle(ctx ", contextPkg.Ident("Context"), ", req ", protoMessage, ", info *", goNatsPkg.Ident("MethodInfo"), ", out ", protoMessage, ", opts ...", goNatsPkg.Ident("CallOption"), ") (err error) {")
+	g.P("var headerMap ", natsPkg.Ident("Header"))
+	g.P("if ctxHeaders := ", goNatsPkg.Ident("HeadersFromOutgoingContext"), "(ctx); ctxHeaders != nil {")
+	g.P("headerMap = ", natsPkg.Ident("Header"), "(ctxHeaders)")
+	g.P("for key, values := range headerMap {")
+	g.P("headerMap[key] = values")
+	g.P("}")
+	g.P("} else {")
+	g.P("headerMap = ", natsPkg.Ident("Header"), "{}")
+	g.P("}")
+	g.P()
+	g.P("invoker := invoker(c.nc)")
+	g.P()
+	g.P("if c.interceptor == nil {")
+	g.P("return invoker(ctx, info, req, out, headerMap, opts...)")
+	g.P("} else {")
+	g.P("return c.interceptor(ctx, info, req, out, headerMap, invoker, opts...)")
+	g.P("}")
+	g.P("}")
+	g.P()
+
+	// Generate invoker function
+	g.P("func invoker(conn *", natsConn, ") ", goNatsPkg.Ident("UnaryInvoker"), " {")
+	g.P("return func(ctx ", contextPkg.Ident("Context"), ", info *", goNatsPkg.Ident("MethodInfo"), ", req ", protoMessage, ", reply ", protoMessage, ", header ", natsPkg.Ident("Header"), ", opts ...", goNatsPkg.Ident("CallOption"), ") error {")
+	g.P("options := ", goNatsImplPkg.Ident("ProcessCallOptions"), "(opts...)")
+	g.P()
+	g.P("var cancel ", contextPkg.Ident("CancelFunc"))
+	g.P("if _, hasDeadline := ctx.Deadline(); !hasDeadline {")
+	g.P("timeout := options.GetTimeoutOr(5 * ", timePkg.Ident("Second"), ")")
+	g.P("ctx, cancel = ", contextPkg.Ident("WithTimeout"), "(ctx, timeout)")
+	g.P("defer cancel()")
+	g.P("}")
+	g.P()
+	g.P("data, err := ", protoMarshal, "(req)")
+	g.P("if err != nil {")
 	g.P("return ", goNatsPkg.Ident("ErrMarshallingFailed"))
 	g.P("}")
+	g.P()
+	g.P("subject := options.Subject(info.Subject)")
+	g.P("msg := &", natsPkg.Ident("Msg"), "{")
+	g.P("Subject: subject,")
+	g.P("Data:    data,")
+	g.P("Header:  header,")
 	g.P("}")
-	g.P("var msg *", natsPkg.Ident("Msg"))
-	g.P("if ctx == nil {")
-	g.P("msg, err = c.nc.Request(subject, data, timeout)")
-	g.P("} else {")
-	g.P("msg, err = c.nc.RequestWithContext(ctx, subject, data)")
-	g.P("}")
+	g.P()
+	g.P("respMsg, err := conn.RequestMsgWithContext(ctx, msg)")
 	g.P("if err != nil {")
 	g.P("return err")
 	g.P("}")
-	g.P("if errMsg, errCode := msg.Header.Get(", microPkg.Ident("ErrorHeader"), "), msg.Header.Get(", microPkg.Ident("ErrorCodeHeader"), "); len(errMsg) > 0 && len(errCode) > 0 {")
-	g.P("if len(msg.Data) == 0 {")
-	g.P("return ", goNatsPkg.Ident("ServiceError"), "{errCode, errMsg, \"\"}")
+	g.P()
+	g.P("if errMsg, errCode := respMsg.Header.Get(", microPkg.Ident("ErrorHeader"), "), respMsg.Header.Get(", microPkg.Ident("ErrorCodeHeader"), "); len(errMsg) > 0 && len(errCode) > 0 {")
+	g.P("if len(respMsg.Data) == 0 {")
+	g.P("return ", goNatsPkg.Ident("ServiceError"), "{Code: errCode, Description: errMsg}")
 	g.P("}")
-	g.P("return ", goNatsPkg.Ident("ServiceError"), "{errCode, errMsg, string(msg.Data)}")
+	g.P("return ", goNatsPkg.Ident("ServiceError"), "{Code: errCode, Description: errMsg, Details: string(respMsg.Data)}")
 	g.P("}")
-	g.P("if out != nil {")
-	g.P("if err = ", protoUnmarshal, "(msg.Data, out); err != nil {")
+	g.P("if reply != nil {")
+	g.P("if err = ", protoUnmarshal, "(respMsg.Data, reply); err != nil {")
 	g.P("return ", goNatsPkg.Ident("ErrUnmarshallingFailed"))
 	g.P("}")
 	g.P("}")
 	g.P("return nil")
+	g.P("}")
 	g.P("}")
 	g.P()
 
@@ -589,8 +598,9 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 	g.P()
 
 	// Generate NewClient function
-	g.P("func New", cliName, "(nc *", natsConn, ") ", cliName, " {")
-	g.P("return &", unexport(cliName), "{nc: nc, timeout: ", timePkg.Ident("Second"), " * 5}")
+	g.P("func New", cliName, "(nc *", natsConn, ", opts ...", goNatsPkg.Ident("ClientOption"), ") ", cliName, " {")
+	g.P("clientOpts := ", goNatsImplPkg.Ident("ProcessClientOptions"), "(opts...)")
+	g.P("return &", unexport(cliName), "{nc: nc, timeout: ", timePkg.Ident("Second"), " * 5, interceptor: clientOpts.UnaryInterceptor}")
 	g.P("}")
 	g.P()
 
@@ -619,12 +629,11 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 			returnResp = "&response, "
 		} else {
 			handleResp = "nil"
-			returnResp = ""
 		}
 		if broadcasting {
 			g.P("func (c *", unexport(cliName), ") ", method.GoName, "(", req, "opts ...", goNatsPkg.Ident("CallOption"), ") (", resp, "[]", goNatsPkg.Ident("ServiceError"), ", error) {")
 		} else {
-			g.P("func (c *", unexport(cliName), ") ", method.GoName, "(", req, "opts ...", goNatsPkg.Ident("CallOption"), ") (", resp, "error) {")
+			g.P("func (c *", unexport(cliName), ") ", method.GoName, "(ctx ", ctx, ", ", req, "opts ...", goNatsPkg.Ident("CallOption"), ") (", resp, "error) {")
 		}
 
 		if method.Output.Location.SourceFile != emptyPb && !broadcasting {
@@ -665,14 +674,13 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 				g.P("return serviceErrs, err")
 			}
 		} else {
-			var errReturn = "nil, "
-			if method.Output.Location.SourceFile == emptyPb {
-				errReturn = ""
-			}
-			g.P("if err := c.handleWithRetry("+handleReq+", ", strconv.Quote(plugin.SubjectName(service, method)), ", ", handleResp, ", opts...); err != nil {")
-			g.P("return ", errReturn, "err")
+			g.P("info := &", goNatsPkg.Ident("MethodInfo"), "{")
+			g.P("Subject: ", strconv.Quote(plugin.SubjectName(service, method)), ",")
+			g.P("Service: ", strconv.Quote(service.GoName), ",")
+			g.P("Method: ", strconv.Quote(method.GoName), ",")
 			g.P("}")
-			g.P("return ", returnResp, "nil")
+			g.P()
+			g.P("return ", returnResp, " c.handle(ctx, ", handleReq, ", info, ", handleResp, ", opts...)")
 		}
 		g.P("}")
 		g.P()
