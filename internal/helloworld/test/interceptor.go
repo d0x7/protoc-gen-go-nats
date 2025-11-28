@@ -24,6 +24,7 @@ func OTelClientInterceptor(ctx context.Context, method string, req, reply proto.
 
 	fmt.Printf("OTelClientInterceptor: traceID=%s, method=%s\n", traceID, method)
 	headers := nats.Header{}
+	headers.Set("traceID", traceID)
 	ctx = helloworld.NewOutgoingContext(ctx, headers)
 
 	err := invoker(ctx, method, req, reply, opts...)
@@ -41,8 +42,10 @@ func OTelServerInterceptor(ctx context.Context, req proto.Message, info *hellowo
 	if traceID == "" {
 		fmt.Println("OTelServerInterceptor: traceID not found in headers")
 	} else {
-		fmt.Printf("OTelServerInterceptor: traceID=%s, method=%s\n", traceID, info.FullMethod)
+		ctx = context.WithValue(ctx, "traceID", traceID)
+		fmt.Printf("OTelServerInterceptor: traceID=%s, method=%s\n", traceID, info.Method)
 	}
+	fmt.Printf("MethodInfo: Subject=%s, Service=%s, Method=%s\n", info.Subject, info.Service, info.Method)
 
 	return handler(ctx, req)
 }
