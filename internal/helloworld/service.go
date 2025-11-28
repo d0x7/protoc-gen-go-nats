@@ -35,15 +35,31 @@ func NewHelloWorldServiceNATSClient(nc *nats_go.Conn, interceptors ...ClientInte
 
 // 3. The Implementation of the Client Method
 func (c *helloWorldServiceNATSClient) HelloWorld(ctx context.Context, req *HelloWorldRequest, opts ...protonats.CallOption) (*HelloWorldResponse, error) {
-	// The subject is hardcoded or generated
-	const subject = "service.HelloWorldService.HelloWorld"
-	const method = "HelloWorld"
-
 	resp := &HelloWorldResponse{}
+
+	info := &MethodInfo{
+		Subject: "service.HelloWorldService.HelloWorld",
+		Method:  "HelloWorld",
+		Service: "HelloWorldService",
+	}
+
+	// 1. Initialize Headers ONCE
+	// We extract what the user put in Context (if any) and create the map that will be used
+	// for the rest of the chain.
+	var headerMap nats_go.Header
+	if ctxHeaders := HeadersFromOutgoingContext(ctx); ctxHeaders != nil {
+		// We must copy once to avoid mutating the immutable Context value
+		headerMap = make(nats_go.Header)
+		for k, v := range ctxHeaders {
+			headerMap[k] = v // Slice copy
+		}
+	} else {
+		headerMap = make(nats_go.Header)
+	}
 
 	// Define the "Final Invoker". This is the function that actually calls NATS.
 	// It is the last link in the chain.
-	invoker := func(ctx context.Context, method string, req, reply proto.Message, opts ...protonats.CallOption) error {
+	invoker := func(ctx context.Context, info *MethodInfo, req, reply proto.Message, headers nats_go.Header, opts ...protonats.CallOption) error {
 		options := impl.ProcessCallOptions(opts...)
 
 		// Logic to handle Timeouts: Context takes precedence, but we can fallback to options
@@ -63,18 +79,9 @@ func (c *helloWorldServiceNATSClient) HelloWorld(ctx context.Context, req *Hello
 
 		// Create the NATS Message
 		msg := &nats_go.Msg{
-			Subject: options.Subject(subject),
+			Subject: options.Subject(info.Subject),
 			Data:    data,
-			Header:  nats_go.Header{},
-		}
-
-		// IMPORTANT: Inject Headers from Context (e.g. set by OpenTelemetry)
-		if outgoingHeaders := HeadersFromOutgoingContext(ctx); outgoingHeaders != nil {
-			for k, v := range outgoingHeaders {
-				for _, val := range v {
-					msg.Header.Add(k, val)
-				}
-			}
+			Header:  headers,
 		}
 
 		// Perform the Request using RequestMsgWithContext (Native Context Support!)
@@ -104,13 +111,13 @@ func (c *helloWorldServiceNATSClient) HelloWorld(ctx context.Context, req *Hello
 		interceptor := c.interceptors[i]
 		// Capture loop variables
 		next := chain
-		chain = func(currentCtx context.Context, currentMethod string, currentReq, currentReply proto.Message, currentOpts ...protonats.CallOption) error {
-			return interceptor(currentCtx, currentMethod, currentReq, currentReply, c.nc, next, currentOpts...)
+		chain = func(currentCtx context.Context, info *MethodInfo, currentReq, reply proto.Message, headers nats_go.Header, currentOpts ...protonats.CallOption) error {
+			return interceptor(currentCtx, info, currentReq, reply, headers, next, currentOpts...)
 		}
 	}
 
 	// Execute the chain
-	err := chain(ctx, method, req, resp, opts...)
+	err := chain(ctx, info, req, resp, headerMap, opts...)
 	return resp, err
 }
 
