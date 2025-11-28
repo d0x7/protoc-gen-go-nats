@@ -10,24 +10,25 @@ import (
 	"xiam.li/protonats/go/protonats"
 )
 
-func OTelClientInterceptor(ctx context.Context, method string, req, reply proto.Message, cc *nats.Conn, invoker helloworld.ClientInvoker, opts ...protonats.CallOption) error {
+func OTelClientInterceptor(ctx context.Context, info *helloworld.MethodInfo, req, reply proto.Message, header nats.Header, invoker helloworld.ClientInvoker, opts ...protonats.CallOption) error {
 	value := ctx.Value("traceID")
 	if value == nil {
 		fmt.Println("traceID not found in context")
-		return invoker(ctx, method, req, reply, opts...)
+		return invoker(ctx, info, req, reply, header, opts...)
 	}
 	traceID, ok := value.(string)
 	if !ok {
 		fmt.Println("traceID is not a string")
-		return invoker(ctx, method, req, reply, opts...)
+		return invoker(ctx, info, req, reply, header, opts...)
 	}
 
-	fmt.Printf("OTelClientInterceptor: traceID=%s, method=%s\n", traceID, method)
-	headers := nats.Header{}
-	headers.Set("traceID", traceID)
-	ctx = helloworld.NewOutgoingContext(ctx, headers)
+	fmt.Printf("OTelClientInterceptor: traceID=%s, method=%s\n", traceID, info.Method)
+	header.Set("traceID", traceID)
+	//headers := nats.Header{}
+	//headers.Set("traceID", traceID)
+	//ctx = helloworld.NewOutgoingContext(ctx, headers)
 
-	err := invoker(ctx, method, req, reply, opts...)
+	err := invoker(ctx, info, req, reply, header, opts...)
 	if err != nil {
 		fmt.Printf("OTelClientInterceptor: error=%v\n", err)
 	} else {
