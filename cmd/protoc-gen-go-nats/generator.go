@@ -674,13 +674,20 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 				g.P("return serviceErrs, err")
 			}
 		} else {
+			var errReturn = "nil, "
+			if method.Output.Location.SourceFile == emptyPb {
+				errReturn = ""
+			}
 			g.P("info := &", goNatsPkg.Ident("MethodInfo"), "{")
 			g.P("Subject: ", strconv.Quote(plugin.SubjectName(service, method)), ",")
 			g.P("Service: ", strconv.Quote(service.GoName), ",")
 			g.P("Method: ", strconv.Quote(method.GoName), ",")
 			g.P("}")
 			g.P()
-			g.P("return ", returnResp, " c.handle(ctx, ", handleReq, ", info, ", handleResp, ", opts...)")
+			g.P("if err := c.handle(ctx, ", handleReq, ", info, ", handleResp, ", opts...); err != nil {")
+			g.P("return ", errReturn, "err")
+			g.P("}")
+			g.P("return ", returnResp, "nil")
 		}
 		g.P("}")
 		g.P()
