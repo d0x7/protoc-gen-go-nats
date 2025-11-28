@@ -32,6 +32,7 @@ var (
 	protoMessage   = protoPkg.Ident("Message")
 	protoMarshal   = protoPkg.Ident("Marshal")
 	protoUnmarshal = protoPkg.Ident("Unmarshal")
+	ctx            = contextPkg.Ident("Context")
 
 	emptyPb = "google/protobuf/empty.proto"
 
@@ -96,7 +97,7 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) error 
 		if method.Output.Location.SourceFile != emptyPb {
 			resp = "*" + g.QualifiedGoIdent(method.Output.GoIdent) + ", "
 		}
-		fn := fmt.Sprintf("%s%s(%s) (%serror)", method.Comments.Leading, method.GoName, req, resp)
+		fn := fmt.Sprintf("%s%s(ctx %s, %s) (%serror)", method.Comments.Leading, method.GoName, g.QualifiedGoIdent(ctx), req, resp)
 
 		if consensusTarget := plugin.GetConsensusTarget(method); consensusTarget != nil {
 			if *consensusTarget == protonats.ConsensusTarget_LEADER {
@@ -260,21 +261,68 @@ func generateEndpointHandler(g *protogen.GeneratedFile, service *protogen.Servic
 	handler := method.GoName + "Handler"
 	g.P(handler, " := ", microPkg.Ident("HandlerFunc"), "(func(request ", microRequest, ") {")
 
+	g.P("ctx := ", contextPkg.Ident("Background"), "()")
+	g.P("ctx = ", goNatsImplPkg.Ident("NewContextWithHeaders"), "(ctx, ", natsPkg.Ident("Header"), "(request.Headers()))")
+	g.P()
+
 	var handlerReq string
+	var chainReq string
 	if method.Input.Location.SourceFile != emptyPb {
 		handlerReq = "&req"
+		chainReq = handlerReq
 		g.P("var req ", method.Input.GoIdent)
 		g.P("if err := ", protoUnmarshal, "(request.Data(), &req); err != nil {")
 		g.P("request.Error(", strconv.Quote("560"), ", ", strconv.Quote("Failed to unmarshal proto message"), ", []byte(err.Error()))")
 		g.P("return")
 		g.P("}")
 		g.P()
+	} else {
+		chainReq = "nil"
 	}
-	var handlerResp string
+
+	// Create method info
+	g.P("info := &", goNatsPkg.Ident("MethodInfo"), "{")
+	g.P("Subject: request.Subject(),")
+	g.P("Service: ", strconv.Quote(service.GoName), ",")
+	g.P("Method: ", strconv.Quote(method.GoName), ",")
+	g.P("}")
+	g.P()
+
+	// Create bridging handler
+	g.P("handler := func(ctx ", contextPkg.Ident("Context"), ", req ", protoMessage, ") (", protoMessage, ", error) {")
+	var callReq string
+	if method.Input.Location.SourceFile != emptyPb {
+		g.P("typedReq, ok := req.(*", g.QualifiedGoIdent(method.Input.GoIdent), ")")
+		g.P("if !ok {")
+		g.P("return nil, ", errorsPkg.Ident("New"), "(", strconv.Quote("invalid request type"), ")")
+		g.P("}")
+		callReq = "typedReq"
+	}
 	if method.Output.Location.SourceFile != emptyPb {
-		handlerResp = "response, "
+		g.P("return server.", method.GoName, "(ctx, ", callReq, ")")
+	} else {
+		g.P("return nil, server.", method.GoName, "(ctx, ", callReq, ")")
 	}
-	g.P(handlerResp, "err := server.", method.GoName, "(", handlerReq, ")")
+	g.P("}")
+	g.P()
+
+	// Call interceptor chain
+	if method.Output.Location.SourceFile != emptyPb {
+		g.P("var response ", protoMessage)
+		g.P("if opts == nil || opts.UnaryInterceptor == nil {")
+		g.P("response, err = handler(ctx, ", chainReq, ")")
+		g.P("} else {")
+		g.P("response, err = opts.UnaryInterceptor(ctx, ", chainReq, ", info, handler)")
+		g.P("}")
+	} else {
+		g.P("if opts == nil || opts.UnaryInterceptor == nil {")
+		g.P("_, err = handler(ctx, ", chainReq, ")")
+		g.P("} else {")
+		g.P("_, err = opts.UnaryInterceptor(ctx, ", chainReq, ", info, handler)")
+		g.P("}")
+	}
+	g.P()
+
 	g.P("if err != nil {")
 	g.P("if ", goNatsPkg.Ident("IsServiceError"), "(err) {")
 	g.P(slogPkg.Ident("Warn"), "(", strconv.Quote("Server implementations should not return ServiceError, use go_nats.NewServerError instead"), ", ", strconv.Quote("error"), ", err)")
