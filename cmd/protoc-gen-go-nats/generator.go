@@ -400,7 +400,7 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 		}
 		g.AnnotateSymbol(cliName+"."+method.GoName, protogen.Annotation{Location: method.Location})
 		if broadcasting {
-			g.P(method.Comments.Leading, method.GoName, "(", req, "opts ...", goNatsPkg.Ident("CallOption"), ") (", resp, "[]", goNatsPkg.Ident("ServiceError"), ", error)")
+			g.P(method.Comments.Leading, method.GoName, "(ctx ", ctx, ", ", req, "opts ...", goNatsPkg.Ident("CallOption"), ") (", resp, "[]", goNatsPkg.Ident("ServiceError"), ", error)")
 		} else {
 			g.P(method.Comments.Leading, method.GoName, "(ctx ", ctx, ", ", req, "opts ...", goNatsPkg.Ident("CallOption"), ") (", resp, "error)")
 		}
@@ -631,7 +631,7 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 			handleResp = "nil"
 		}
 		if broadcasting {
-			g.P("func (c *", unexport(cliName), ") ", method.GoName, "(", req, "opts ...", goNatsPkg.Ident("CallOption"), ") (", resp, "[]", goNatsPkg.Ident("ServiceError"), ", error) {")
+			g.P("func (c *", unexport(cliName), ") ", method.GoName, "(ctx ", ctx, ", ", req, "opts ...", goNatsPkg.Ident("CallOption"), ") (", resp, "[]", goNatsPkg.Ident("ServiceError"), ", error) {")
 		} else {
 			g.P("func (c *", unexport(cliName), ") ", method.GoName, "(ctx ", ctx, ", ", req, "opts ...", goNatsPkg.Ident("CallOption"), ") (", resp, "error) {")
 		}
@@ -661,7 +661,7 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 			}
 
 			if method.Output.Location.SourceFile != emptyPb {
-				g.P("objs, serviceErrs, err := request(c.nc, c.timeout, ", strconv.Quote(plugin.SubjectName(service, method)), ", ", input, ", func(data []byte, rtt ", timeDuration, ") (*", method.Output.GoIdent, ", error) {")
+				g.P("objs, serviceErrs, err := request(ctx, c.nc, c.timeout, ", strconv.Quote(plugin.SubjectName(service, method)), ", ", input, ", func(data []byte, rtt ", timeDuration, ") (*", method.Output.GoIdent, ", error) {")
 				g.P("var obj ", method.Output.GoIdent)
 				g.P("if err := ", protoUnmarshal, "(data, &obj); err != nil {")
 				g.P("return nil, err")
@@ -670,7 +670,7 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 				g.P("}, opts...)")
 				g.P("return objs, serviceErrs, err")
 			} else {
-				g.P("_, serviceErrs, err := request[struct{}](c.nc, c.timeout, ", strconv.Quote(plugin.SubjectName(service, method)), ", ", input, ", nil, opts...)")
+				g.P("_, serviceErrs, err := request[struct{}](ctx, c.nc, c.timeout, ", strconv.Quote(plugin.SubjectName(service, method)), ", ", input, ", nil, opts...)")
 				g.P("return serviceErrs, err")
 			}
 		} else {
