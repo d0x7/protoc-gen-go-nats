@@ -3,10 +3,12 @@ package helloworld
 import (
 	context "context"
 	fmt "fmt"
+	"log/slog"
 	"time"
 
 	nats_go "github.com/nats-io/nats.go"
 	micro "github.com/nats-io/nats.go/micro"
+	"github.com/pkg/errors"
 	proto "google.golang.org/protobuf/proto"
 
 	impl "xiam.li/protonats/go/impl"
@@ -218,12 +220,15 @@ func _newHelloWorldServiceServer(service micro.Service, server HelloWorldService
 
 		// 8. Handle Response / Error
 		if err != nil {
-			// Check if it's a specific ServiceError, etc. (Existing logic)
 			if protonats.IsServiceError(err) {
-				// Log warning...
+				slog.Warn("Server implementations should not return ServiceError, use go_nats.NewServerError instead", "error", err)
 			}
-			// Respond with error
-			request.Error("500", "Internal Server Error", []byte(err.Error()))
+			var serverErr protonats.ServerError
+			if errors.As(err, &serverErr) {
+				request.Error(serverErr.Code, serverErr.Description, serverErr.GetWrapped(), serverErr.GetOptHeaders())
+			} else {
+				request.Error("500", "Internal server error", []byte(err.Error()))
+			}
 			return
 		}
 

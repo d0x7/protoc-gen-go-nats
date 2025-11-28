@@ -17,6 +17,8 @@ type outgoingHeaderKey struct{} // For Client (Outgoing)
 
 // --- Server Side (Incoming) ---
 
+// Used by interceptors and handlers to read headers from context.
+
 func HeadersFromContext(ctx context.Context) nats.Header {
 	if h, ok := ctx.Value(headerKey{}).(nats.Header); ok {
 		return h
@@ -24,11 +26,15 @@ func HeadersFromContext(ctx context.Context) nats.Header {
 	return nil
 }
 
+// Used by server to inject headers into context, so that interceptors and handlers can read them.
+
 func NewContextWithHeaders(ctx context.Context, h nats.Header) context.Context {
 	return context.WithValue(ctx, headerKey{}, h)
 }
 
 // --- Client Side (Outgoing) ---
+
+// Used by client before making the call to extract headers from context.
 
 func HeadersFromOutgoingContext(ctx context.Context) nats.Header {
 	if h, ok := ctx.Value(outgoingHeaderKey{}).(nats.Header); ok {
@@ -37,26 +43,28 @@ func HeadersFromOutgoingContext(ctx context.Context) nats.Header {
 	return nil
 }
 
-// WithOutgoingHeader merges new headers into the context safely.
-// It does NOT overwrite existing headers from previous interceptors.
-func WithOutgoingHeader(ctx context.Context, key, value string) context.Context {
-	// 1. Get existing
-	existing := HeadersFromOutgoingContext(ctx)
+//// WithOutgoingHeader merges new headers into the context safely.
+//// It does NOT overwrite existing headers from previous interceptors.
+//func WithOutgoingHeader(ctx context.Context, key, value string) context.Context {
+//	// 1. Get existing
+//	existing := HeadersFromOutgoingContext(ctx)
+//
+//	// 2. Clone/Create (To avoid mutating the map in the parent context reference)
+//	newHeaders := make(nats.Header)
+//	if existing != nil {
+//		for k, v := range existing {
+//			newHeaders[k] = v // Deep copy the slice if you want to be 100% safe, but usually slice ref is fine here
+//		}
+//	}
+//
+//	// 3. Add new
+//	newHeaders.Add(key, value)
+//
+//	// 4. Return new context
+//	return context.WithValue(ctx, outgoingHeaderKey{}, newHeaders)
+//}
 
-	// 2. Clone/Create (To avoid mutating the map in the parent context reference)
-	newHeaders := make(nats.Header)
-	if existing != nil {
-		for k, v := range existing {
-			newHeaders[k] = v // Deep copy the slice if you want to be 100% safe, but usually slice ref is fine here
-		}
-	}
-
-	// 3. Add new
-	newHeaders.Add(key, value)
-
-	// 4. Return new context
-	return context.WithValue(ctx, outgoingHeaderKey{}, newHeaders)
-}
+// Used to pass headers into the context, before making the client call.
 
 // WithOutgoingHeaders merges a whole map
 func WithOutgoingHeaders(ctx context.Context, h nats.Header) context.Context {
@@ -77,6 +85,13 @@ func WithOutgoingHeaders(ctx context.Context, h nats.Header) context.Context {
 	}
 
 	return context.WithValue(ctx, outgoingHeaderKey{}, newHeaders)
+}
+
+func WithUnaryInterceptor(interceptor ClientInterceptor) protonats.CallOption {
+	return func(options protonats.CallOptions) {
+		//options.AddUnaryInterceptor(interceptor)
+		//options.UnaryInterceptors = append(options.UnaryInterceptors, interceptor)
+	}
 }
 
 // ============================================================================
