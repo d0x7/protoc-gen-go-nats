@@ -68,7 +68,7 @@ func TestNormal(t *testing.T) {
 
 	t.Run("TestTest", func(t *testing.T) {
 		t.Parallel()
-		resp, err := cli.NormalTestTest(&Test{Test: "Test Client"})
+		resp, err := cli.NormalTestTest(t.Context(), &Test{Test: "Test Client"})
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -84,7 +84,7 @@ func TestNormal(t *testing.T) {
 
 	t.Run("EmptyTest", func(t *testing.T) {
 		t.Parallel()
-		resp, err := cli.NormalEmptyTest()
+		resp, err := cli.NormalEmptyTest(t.Context())
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -100,7 +100,7 @@ func TestNormal(t *testing.T) {
 
 	t.Run("TestEmpty", func(t *testing.T) {
 		t.Parallel()
-		err := cli.NormalTestEmpty(&Test{Test: "Test Client"})
+		err := cli.NormalTestEmpty(t.Context(), &Test{Test: "Test Client"})
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -108,7 +108,7 @@ func TestNormal(t *testing.T) {
 
 	t.Run("EmptyEmpty", func(t *testing.T) {
 		t.Parallel()
-		err := cli.NormalEmptyEmpty()
+		err := cli.NormalEmptyEmpty(t.Context())
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -206,7 +206,7 @@ func TestErr(t *testing.T) {
 
 	t.Run("ServiceError", func(t *testing.T) {
 		t.Parallel()
-		resp, err := cli.ErrServiceError(&Test{Test: "Test Client"})
+		resp, err := cli.ErrServiceError(t.Context(), &Test{Test: "Test Client"})
 		if err == nil {
 			t.Fatalf("Expected error, got nil")
 		}
@@ -220,7 +220,7 @@ func TestErr(t *testing.T) {
 
 	t.Run("ServerError", func(t *testing.T) {
 		t.Parallel()
-		resp, err := cli.ErrServerError(&Test{Test: "Test Client"})
+		resp, err := cli.ErrServerError(t.Context(), &Test{Test: "Test Client"})
 		if err == nil {
 			t.Fatalf("Expected error, got nil")
 		}
@@ -300,7 +300,7 @@ func TestLeaderOnly(t *testing.T) {
 
 	t.Run("TestTest", func(t *testing.T) {
 		t.Parallel()
-		resp, err := cli.LeaderOnlyTestTest(&Test{Test: "Test Client"})
+		resp, err := cli.LeaderOnlyTestTest(t.Context(), &Test{Test: "Test Client"})
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -311,7 +311,7 @@ func TestLeaderOnly(t *testing.T) {
 
 	t.Run("EmptyTest", func(t *testing.T) {
 		t.Parallel()
-		resp, err := cli.LeaderOnlyEmptyTest()
+		resp, err := cli.LeaderOnlyEmptyTest(t.Context())
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -322,7 +322,7 @@ func TestLeaderOnly(t *testing.T) {
 
 	t.Run("TestEmpty", func(t *testing.T) {
 		t.Parallel()
-		err := cli.LeaderOnlyTestEmpty(&Test{Test: "Test Client"})
+		err := cli.LeaderOnlyTestEmpty(t.Context(), &Test{Test: "Test Client"})
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -330,7 +330,7 @@ func TestLeaderOnly(t *testing.T) {
 
 	t.Run("EmptyEmpty", func(t *testing.T) {
 		t.Parallel()
-		err := cli.LeaderOnlyEmptyEmpty()
+		err := cli.LeaderOnlyEmptyEmpty(t.Context())
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -419,7 +419,7 @@ func TestFollowerOnly(t *testing.T) {
 
 	t.Run("TestTest", func(t *testing.T) {
 		t.Parallel()
-		resp, err := cli.FollowerOnlyTestTest(&Test{Test: "Test Client"})
+		resp, err := cli.FollowerOnlyTestTest(t.Context(), &Test{Test: "Test Client"})
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -435,7 +435,7 @@ func TestFollowerOnly(t *testing.T) {
 
 	t.Run("EmptyTest", func(t *testing.T) {
 		t.Parallel()
-		resp, err := cli.FollowerOnlyEmptyTest()
+		resp, err := cli.FollowerOnlyEmptyTest(t.Context())
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -451,7 +451,7 @@ func TestFollowerOnly(t *testing.T) {
 
 	t.Run("TestEmpty", func(t *testing.T) {
 		t.Parallel()
-		err := cli.FollowerOnlyTestEmpty(&Test{Test: "Test Client"})
+		err := cli.FollowerOnlyTestEmpty(t.Context(), &Test{Test: "Test Client"})
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -459,7 +459,7 @@ func TestFollowerOnly(t *testing.T) {
 
 	t.Run("EmptyEmpty", func(t *testing.T) {
 		t.Parallel()
-		err := cli.FollowerOnlyEmptyEmpty()
+		err := cli.FollowerOnlyEmptyEmpty(t.Context())
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -604,7 +604,7 @@ func TestContext(t *testing.T) {
 
 	t.Run("WithTimeout", func(t *testing.T) {
 		t.Parallel()
-		err := cli.ThreeSecondDelay(protonats.WithTimeout(1 * time.Second))
+		err := cli.ThreeSecondDelay(t.Context(), protonats.WithTimeout(1*time.Second))
 		if err == nil {
 			t.Fatalf("Expected error, got nil")
 		}
@@ -621,7 +621,7 @@ func TestContext(t *testing.T) {
 			time.Sleep(1 * time.Second)
 			cancel()
 		}()
-		err := cli.ThreeSecondDelay(protonats.WithContext(ctx))
+		err := cli.ThreeSecondDelay(t.Context(), protonats.WithContext(ctx))
 		if err == nil {
 			t.Fatalf("Expected error, got nil")
 		}
@@ -634,7 +634,7 @@ func TestContext(t *testing.T) {
 		t.Parallel()
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
-		err := cli.ThreeSecondDelay(protonats.WithContext(ctx))
+		err := cli.ThreeSecondDelay(t.Context(), protonats.WithContext(ctx))
 		if err == nil {
 			t.Fatalf("Expected error, got nil")
 		}
@@ -652,7 +652,7 @@ func TestNoResponder(t *testing.T) {
 
 	t.Run("NoResponder", func(t *testing.T) {
 		t.Parallel()
-		err := cli.NormalEmptyEmpty()
+		err := cli.NormalEmptyEmpty(t.Context())
 		if err == nil {
 			t.Fatalf("Expected error, got nil")
 		}
