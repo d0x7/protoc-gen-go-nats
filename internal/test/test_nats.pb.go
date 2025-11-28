@@ -735,8 +735,7 @@ func _newTestServiceServer(service micro.Service, server TestServiceNATSServer, 
 
 	// Register the service's methods
 	NormalTestTestHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		var req Test
 		if err := proto.Unmarshal(request.Data(), &req); err != nil {
@@ -795,8 +794,7 @@ func _newTestServiceServer(service micro.Service, server TestServiceNATSServer, 
 	}
 
 	NormalEmptyTestHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		info := &protonats.MethodInfo{
 			Subject: request.Subject(),
@@ -845,8 +843,7 @@ func _newTestServiceServer(service micro.Service, server TestServiceNATSServer, 
 	}
 
 	NormalTestEmptyHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		var req Test
 		if err := proto.Unmarshal(request.Data(), &req); err != nil {
@@ -899,8 +896,7 @@ func _newTestServiceServer(service micro.Service, server TestServiceNATSServer, 
 	}
 
 	NormalEmptyEmptyHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		info := &protonats.MethodInfo{
 			Subject: request.Subject(),
@@ -943,8 +939,7 @@ func _newTestServiceServer(service micro.Service, server TestServiceNATSServer, 
 	}
 
 	ErrServiceErrorHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		var req Test
 		if err := proto.Unmarshal(request.Data(), &req); err != nil {
@@ -1003,8 +998,7 @@ func _newTestServiceServer(service micro.Service, server TestServiceNATSServer, 
 	}
 
 	ErrServerErrorHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		var req Test
 		if err := proto.Unmarshal(request.Data(), &req); err != nil {
@@ -1063,8 +1057,7 @@ func _newTestServiceServer(service micro.Service, server TestServiceNATSServer, 
 	}
 
 	ErrServiceErrorBroadcastHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		var req Test
 		if err := proto.Unmarshal(request.Data(), &req); err != nil {
@@ -1123,8 +1116,7 @@ func _newTestServiceServer(service micro.Service, server TestServiceNATSServer, 
 	}
 
 	ErrServerErrorBroadcastHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		var req Test
 		if err := proto.Unmarshal(request.Data(), &req); err != nil {
@@ -1183,8 +1175,7 @@ func _newTestServiceServer(service micro.Service, server TestServiceNATSServer, 
 	}
 
 	NormalBroadcastTestTestHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		var req Test
 		if err := proto.Unmarshal(request.Data(), &req); err != nil {
@@ -1243,8 +1234,7 @@ func _newTestServiceServer(service micro.Service, server TestServiceNATSServer, 
 	}
 
 	NormalBroadcastEmptyTestHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		info := &protonats.MethodInfo{
 			Subject: request.Subject(),
@@ -1293,8 +1283,7 @@ func _newTestServiceServer(service micro.Service, server TestServiceNATSServer, 
 	}
 
 	NormalBroadcastTestEmptyHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		var req Test
 		if err := proto.Unmarshal(request.Data(), &req); err != nil {
@@ -1347,8 +1336,7 @@ func _newTestServiceServer(service micro.Service, server TestServiceNATSServer, 
 	}
 
 	NormalBroadcastEmptyEmptyHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		info := &protonats.MethodInfo{
 			Subject: request.Subject(),
@@ -1391,8 +1379,7 @@ func _newTestServiceServer(service micro.Service, server TestServiceNATSServer, 
 	}
 
 	ThreeSecondDelayHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		info := &protonats.MethodInfo{
 			Subject: request.Subject(),
@@ -1452,8 +1439,7 @@ func _newTestServiceLeaderServer(service micro.Service, server TestServiceNATSLe
 	var err error
 	_ = err
 	LeaderOnlyTestTestHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		var req Test
 		if err := proto.Unmarshal(request.Data(), &req); err != nil {
@@ -1512,8 +1498,7 @@ func _newTestServiceLeaderServer(service micro.Service, server TestServiceNATSLe
 	}
 
 	LeaderOnlyEmptyTestHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		info := &protonats.MethodInfo{
 			Subject: request.Subject(),
@@ -1562,8 +1547,7 @@ func _newTestServiceLeaderServer(service micro.Service, server TestServiceNATSLe
 	}
 
 	LeaderOnlyTestEmptyHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		var req Test
 		if err := proto.Unmarshal(request.Data(), &req); err != nil {
@@ -1616,8 +1600,7 @@ func _newTestServiceLeaderServer(service micro.Service, server TestServiceNATSLe
 	}
 
 	LeaderOnlyEmptyEmptyHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		info := &protonats.MethodInfo{
 			Subject: request.Subject(),
@@ -1660,8 +1643,7 @@ func _newTestServiceLeaderServer(service micro.Service, server TestServiceNATSLe
 	}
 
 	LeaderOnlyBroadcastTestTestHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		var req Test
 		if err := proto.Unmarshal(request.Data(), &req); err != nil {
@@ -1720,8 +1702,7 @@ func _newTestServiceLeaderServer(service micro.Service, server TestServiceNATSLe
 	}
 
 	LeaderOnlyBroadcastEmptyTestHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		info := &protonats.MethodInfo{
 			Subject: request.Subject(),
@@ -1770,8 +1751,7 @@ func _newTestServiceLeaderServer(service micro.Service, server TestServiceNATSLe
 	}
 
 	LeaderOnlyBroadcastTestEmptyHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		var req Test
 		if err := proto.Unmarshal(request.Data(), &req); err != nil {
@@ -1824,8 +1804,7 @@ func _newTestServiceLeaderServer(service micro.Service, server TestServiceNATSLe
 	}
 
 	LeaderOnlyBroadcastEmptyEmptyHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		info := &protonats.MethodInfo{
 			Subject: request.Subject(),
@@ -1885,8 +1864,7 @@ func _newTestServiceFollowerServer(service micro.Service, server TestServiceNATS
 	var err error
 	_ = err
 	FollowerOnlyTestTestHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		var req Test
 		if err := proto.Unmarshal(request.Data(), &req); err != nil {
@@ -1945,8 +1923,7 @@ func _newTestServiceFollowerServer(service micro.Service, server TestServiceNATS
 	}
 
 	FollowerOnlyEmptyTestHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		info := &protonats.MethodInfo{
 			Subject: request.Subject(),
@@ -1995,8 +1972,7 @@ func _newTestServiceFollowerServer(service micro.Service, server TestServiceNATS
 	}
 
 	FollowerOnlyTestEmptyHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		var req Test
 		if err := proto.Unmarshal(request.Data(), &req); err != nil {
@@ -2049,8 +2025,7 @@ func _newTestServiceFollowerServer(service micro.Service, server TestServiceNATS
 	}
 
 	FollowerOnlyEmptyEmptyHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		info := &protonats.MethodInfo{
 			Subject: request.Subject(),
@@ -2093,8 +2068,7 @@ func _newTestServiceFollowerServer(service micro.Service, server TestServiceNATS
 	}
 
 	FollowerOnlyBroadcastTestTestHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		var req Test
 		if err := proto.Unmarshal(request.Data(), &req); err != nil {
@@ -2153,8 +2127,7 @@ func _newTestServiceFollowerServer(service micro.Service, server TestServiceNATS
 	}
 
 	FollowerOnlyBroadcastEmptyTestHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		info := &protonats.MethodInfo{
 			Subject: request.Subject(),
@@ -2203,8 +2176,7 @@ func _newTestServiceFollowerServer(service micro.Service, server TestServiceNATS
 	}
 
 	FollowerOnlyBroadcastTestEmptyHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		var req Test
 		if err := proto.Unmarshal(request.Data(), &req); err != nil {
@@ -2257,8 +2229,7 @@ func _newTestServiceFollowerServer(service micro.Service, server TestServiceNATS
 	}
 
 	FollowerOnlyBroadcastEmptyEmptyHandler := micro.HandlerFunc(func(request micro.Request) {
-		ctx := context.Background()
-		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx := impl.NewContextWithHeaders(opts.Ctx(), nats_go.Header(request.Headers()))
 
 		info := &protonats.MethodInfo{
 			Subject: request.Subject(),

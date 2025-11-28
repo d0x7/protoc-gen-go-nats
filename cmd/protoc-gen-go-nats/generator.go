@@ -261,8 +261,7 @@ func generateEndpointHandler(g *protogen.GeneratedFile, service *protogen.Servic
 	handler := method.GoName + "Handler"
 	g.P(handler, " := ", microPkg.Ident("HandlerFunc"), "(func(request ", microRequest, ") {")
 
-	g.P("ctx := ", contextPkg.Ident("Background"), "()")
-	g.P("ctx = ", goNatsImplPkg.Ident("NewContextWithHeaders"), "(ctx, ", natsPkg.Ident("Header"), "(request.Headers()))")
+	g.P("ctx := ", goNatsImplPkg.Ident("NewContextWithHeaders"), "(opts.Ctx(), ", natsPkg.Ident("Header"), "(request.Headers()))")
 	g.P()
 
 	var handlerReq string
