@@ -10,20 +10,18 @@ import (
 	context "context"
 	json "encoding/json"
 	errors "errors"
-	slog "log/slog"
-	sync "sync"
-	time "time"
-
 	nats_go "github.com/nats-io/nats.go"
 	micro "github.com/nats-io/nats.go/micro"
 	proto "google.golang.org/protobuf/proto"
-	. "xiam.li/go-protonats/internal/helloworld"
+	slog "log/slog"
+	sync "sync"
+	time "time"
 	impl "xiam.li/protonats/go/impl"
 	protonats "xiam.li/protonats/go/protonats"
 )
 
 // region Client
-type HelloWorldServiceNATSClientx interface {
+type HelloWorldServiceNATSClient interface {
 	HelloWorld(req *HelloWorldRequest, opts ...protonats.CallOption) (*HelloWorldResponse, error)
 	SetTimeout(time.Duration)
 	// ListInstances returns a list containing all instances of this service
@@ -222,7 +220,7 @@ func request[T any](conn *nats_go.Conn, timeout time.Duration, subject string, d
 	}
 }
 
-func NewHelloWorldServiceNATSClientx(nc *nats_go.Conn) HelloWorldServiceNATSClientx {
+func NewHelloWorldServiceNATSClient(nc *nats_go.Conn) HelloWorldServiceNATSClient {
 	return &helloWorldServiceNATSClient{nc: nc, timeout: time.Second * 5}
 }
 
@@ -238,7 +236,7 @@ func (c *helloWorldServiceNATSClient) HelloWorld(req *HelloWorldRequest, opts ..
 //endregion
 
 // region Server
-type HelloWorldServiceNATSServerx interface {
+type HelloWorldServiceNATSServer interface {
 	HelloWorld(req *HelloWorldRequest) (*HelloWorldResponse, error)
 }
 
@@ -246,7 +244,7 @@ type HelloWorldServiceId interface {
 	SetHelloWorldServiceId(string)
 }
 
-func NewHelloWorldServiceNATSServerx(nc *nats_go.Conn, server HelloWorldServiceNATSServerx, opts ...protonats.ServerOption) micro.Service {
+func NewHelloWorldServiceNATSServer(nc *nats_go.Conn, server HelloWorldServiceNATSServer, opts ...protonats.ServerOption) micro.Service {
 	service, options, err := impl.NewService("HelloWorldService", nc, server, opts...)
 	if err != nil {
 		panic(err) // TODO: Update this to proper error handling
@@ -258,7 +256,7 @@ func NewHelloWorldServiceNATSServerx(nc *nats_go.Conn, server HelloWorldServiceN
 
 	return service
 }
-func _newHelloWorldServiceServer(service micro.Service, server HelloWorldServiceNATSServerx, opts *impl.ServerOpts) {
+func _newHelloWorldServiceServer(service micro.Service, server HelloWorldServiceNATSServer, opts *impl.ServerOpts) {
 	var err error
 	_ = err
 
