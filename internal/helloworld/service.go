@@ -23,15 +23,16 @@ type HelloWorldServiceNATSClient interface {
 }
 
 type helloWorldServiceNATSClient struct {
-	nc           *nats_go.Conn
-	interceptors []ClientInterceptor
+	nc          *nats_go.Conn
+	interceptor protonats.UnaryClientInterceptor
 }
 
 // 2. Client Constructor now accepts Interceptors
-func NewHelloWorldServiceNATSClient(nc *nats_go.Conn, interceptors ...ClientInterceptor) HelloWorldServiceNATSClient {
+func NewHelloWorldServiceNATSClient(nc *nats_go.Conn, opts ...protonats.ClientOption) HelloWorldServiceNATSClient {
+	clientOpts := impl.ProcessClientOptions(opts...)
 	return &helloWorldServiceNATSClient{
-		nc:           nc,
-		interceptors: interceptors,
+		nc:          nc,
+		interceptor: clientOpts.UnaryInterceptor,
 	}
 }
 
@@ -39,7 +40,7 @@ func NewHelloWorldServiceNATSClient(nc *nats_go.Conn, interceptors ...ClientInte
 func (c *helloWorldServiceNATSClient) HelloWorld(ctx context.Context, req *HelloWorldRequest, opts ...protonats.CallOption) (*HelloWorldResponse, error) {
 	resp := &HelloWorldResponse{}
 
-	info := &MethodInfo{
+	info := &protonats.MethodInfo{
 		Subject: "service.HelloWorldService.HelloWorld",
 		Method:  "HelloWorld",
 		Service: "HelloWorldService",
@@ -49,7 +50,7 @@ func (c *helloWorldServiceNATSClient) HelloWorld(ctx context.Context, req *Hello
 	// We extract what the user put in Context (if any) and create the map that will be used
 	// for the rest of the chain.
 	var headerMap nats_go.Header
-	if ctxHeaders := HeadersFromOutgoingContext(ctx); ctxHeaders != nil {
+	if ctxHeaders := protonats.HeadersFromOutgoingContext(ctx); ctxHeaders != nil {
 		// We must copy once to avoid mutating the immutable Context value
 		headerMap = make(nats_go.Header)
 		for k, v := range ctxHeaders {
@@ -61,7 +62,7 @@ func (c *helloWorldServiceNATSClient) HelloWorld(ctx context.Context, req *Hello
 
 	// Define the "Final Invoker". This is the function that actually calls NATS.
 	// It is the last link in the chain.
-	invoker := func(ctx context.Context, info *MethodInfo, req, reply proto.Message, headers nats_go.Header, opts ...protonats.CallOption) error {
+	invoker := func(ctx context.Context, info *protonats.MethodInfo, req, reply proto.Message, headers nats_go.Header, opts ...protonats.CallOption) error {
 		options := impl.ProcessCallOptions(opts...)
 
 		// Logic to handle Timeouts: Context takes precedence, but we can fallback to options
@@ -106,21 +107,15 @@ func (c *helloWorldServiceNATSClient) HelloWorld(ctx context.Context, req *Hello
 		return nil
 	}
 
-	// Chain the interceptors
-	// We wrap the invoker recursively
-	chain := invoker
-	for i := len(c.interceptors) - 1; i >= 0; i-- {
-		interceptor := c.interceptors[i]
-		// Capture loop variables
-		next := chain
-		chain = func(currentCtx context.Context, info *MethodInfo, currentReq, reply proto.Message, headers nats_go.Header, currentOpts ...protonats.CallOption) error {
-			return interceptor(currentCtx, info, currentReq, reply, headers, next, currentOpts...)
-		}
+	if c.interceptor == nil {
+		// If no interceptor, call invoker directly
+		err := invoker(ctx, info, req, resp, headerMap, opts...)
+		return resp, err
+	} else {
+		// Execute the chain
+		err := c.interceptor(ctx, info, req, resp, headerMap, invoker, opts...)
+		return resp, err
 	}
-
-	// Execute the chain
-	err := chain(ctx, info, req, resp, headerMap, opts...)
-	return resp, err
 }
 
 //endregion
@@ -132,42 +127,24 @@ type HelloWorldServiceNATSServer interface {
 	HelloWorld(ctx context.Context, req *HelloWorldRequest) (*HelloWorldResponse, error)
 }
 
-// Options struct for Server (to hold interceptors)
-type ServerOption func(*serverOptions)
-
-type serverOptions struct {
-	interceptors []ServerInterceptor
-	// other options...
-}
-
-func WithServerInterceptors(interceptors ...ServerInterceptor) ServerOption {
-	return func(o *serverOptions) {
-		o.interceptors = append(o.interceptors, interceptors...)
-	}
-}
-
 type HelloWorldServiceId interface {
 	SetHelloWorldServiceId(string)
 }
 
-func NewHelloWorldServiceNATSServer(nc *nats_go.Conn, server HelloWorldServiceNATSServer, opts ...ServerOption) micro.Service {
-	service, options, err := impl.NewService("HelloWorldService", nc, server)
+func NewHelloWorldServiceNATSServer(nc *nats_go.Conn, server HelloWorldServiceNATSServer, opts ...protonats.ServerOption) micro.Service {
+	service, options, err := impl.NewService("HelloWorldService", nc, server, opts...)
 	if err != nil {
 		panic(err) // TODO: Update this to proper error handling
-	}
-	so := &serverOptions{}
-	for _, opt := range opts {
-		opt(so)
 	}
 	if setId, ok := server.(HelloWorldServiceId); ok {
 		setId.SetHelloWorldServiceId(service.Info().ID)
 	}
-	_newHelloWorldServiceServer(service, server, options, so.interceptors...)
+	_newHelloWorldServiceServer(service, server, options)
 
 	return service
 }
 
-func _newHelloWorldServiceServer(service micro.Service, server HelloWorldServiceNATSServer, opts *impl.ServerOpts, interceptors ...ServerInterceptor) {
+func _newHelloWorldServiceServer(service micro.Service, server HelloWorldServiceNATSServer, opts *impl.ServerOpts) {
 	var err error
 	// Define the NATS Micro Handler
 	HelloWorldHandler := micro.HandlerFunc(func(request micro.Request) {
@@ -177,7 +154,7 @@ func _newHelloWorldServiceServer(service micro.Service, server HelloWorldService
 
 		// 2. Extract Headers and put them into Context (Crucial for Tracing extraction!)
 		// The request.Headers() contains the SpanID sent by client
-		ctx = NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
+		ctx = impl.NewContextWithHeaders(ctx, nats_go.Header(request.Headers()))
 
 		// 3. Unmarshal (We must do this before calling interceptors so they see the object)
 		var req HelloWorldRequest
@@ -187,7 +164,7 @@ func _newHelloWorldServiceServer(service micro.Service, server HelloWorldService
 		}
 
 		// 4. Define the Method Info
-		info := &MethodInfo{
+		info := &protonats.MethodInfo{
 			Subject: request.Subject(),
 			Service: "HelloWorldService",
 			Method:  "HelloWorld",
@@ -205,18 +182,14 @@ func _newHelloWorldServiceServer(service micro.Service, server HelloWorldService
 			return server.HelloWorld(ctx, typedReq)
 		}
 
-		// 6. Chain Interceptors
-		chain := handler
-		for i := len(interceptors) - 1; i >= 0; i-- {
-			interceptor := interceptors[i]
-			next := chain
-			chain = func(currentCtx context.Context, currentReq proto.Message) (proto.Message, error) {
-				return interceptor(currentCtx, currentReq, info, next)
-			}
+		var resp proto.Message
+		if opts == nil || opts.UnaryInterceptor == nil {
+			// If no interceptors, call handler directly
+			resp, err = handler(ctx, &req)
+		} else {
+			// Execute with interceptors
+			resp, err = opts.UnaryInterceptor(ctx, &req, info, handler)
 		}
-
-		// 7. Execute
-		resp, err := chain(ctx, &req)
 
 		// 8. Handle Response / Error
 		if err != nil {

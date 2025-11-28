@@ -7,6 +7,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"xiam.li/go-protonats/internal/helloworld"
 	shared "xiam.li/go-protonats/internal/helloworld/test"
+	"xiam.li/protonats/go/protonats"
 )
 
 type helloWorldServiceImpl struct {
@@ -34,8 +35,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	_ = helloworld.NewHelloWorldServiceNATSServer(conn, &helloWorldServiceImpl{}, helloworld.WithServerInterceptors(shared.OTelServerInterceptor))
+	_ = helloworld.NewHelloWorldServiceNATSServer(conn, &helloWorldServiceImpl{}, protonats.UnaryInterceptor(shared.OTelServerInterceptor))
 	fmt.Println("Starting HelloWorldServiceNATSServer...")
-	for {
-	}
+	select {}
 }

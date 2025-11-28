@@ -7,13 +7,24 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"google.golang.org/protobuf/proto"
-	"xiam.li/go-protonats/internal/helloworld"
 	"xiam.li/protonats/go/protonats"
 )
 
 var missingTracingId = protonats.NewServerErr("1234", "missing tracing id")
 
-func TimingClientInterceptor(ctx context.Context, info *helloworld.MethodInfo, req, reply proto.Message, header nats.Header, invoker helloworld.ClientInvoker, opts ...protonats.CallOption) error {
+func TimingInterceptor(name string) protonats.UnaryClientInterceptor {
+	return func(ctx context.Context, info *protonats.MethodInfo, req, reply proto.Message, header nats.Header, invoker protonats.UnaryInvoker, opts ...protonats.CallOption) error {
+		fmt.Printf("TimingInterceptor (%s): method=%s\n", name, info.Method)
+		start := time.Now()
+		err := invoker(ctx, info, req, reply, header, opts...)
+		duration := time.Since(start)
+		fmt.Printf("ProtoNATS (%s): %s, duration: %s, err: %v\n", name, info.Method, duration, err)
+		return err
+	}
+}
+
+func TimingClientInterceptor(ctx context.Context, info *protonats.MethodInfo, req, reply proto.Message, header nats.Header, invoker protonats.UnaryInvoker, opts ...protonats.CallOption) error {
+	fmt.Printf("TimingClientInterceptor: method=%s\n", info.Method)
 	start := time.Now()
 	err := invoker(ctx, info, req, reply, header, opts...)
 	duration := time.Since(start)
@@ -21,7 +32,7 @@ func TimingClientInterceptor(ctx context.Context, info *helloworld.MethodInfo, r
 	return err
 }
 
-func OTelClientInterceptor(ctx context.Context, info *helloworld.MethodInfo, req, reply proto.Message, header nats.Header, invoker helloworld.ClientInvoker, opts ...protonats.CallOption) error {
+func OTelClientInterceptor(ctx context.Context, info *protonats.MethodInfo, req, reply proto.Message, header nats.Header, invoker protonats.UnaryInvoker, opts ...protonats.CallOption) error {
 	value := ctx.Value("traceID")
 	if value == nil {
 		fmt.Println("traceID not found in context")
@@ -34,7 +45,7 @@ func OTelClientInterceptor(ctx context.Context, info *helloworld.MethodInfo, req
 	}
 
 	fmt.Printf("OTelClientInterceptor: traceID=%s, method=%s\n", traceID, info.Method)
-	header.Set("traceIDx", traceID)
+	header.Set("traceID", traceID)
 	//headers := nats.Header{}
 	//headers.Set("traceID", traceID)
 	//ctx = helloworld.NewOutgoingContext(ctx, headers)
@@ -48,8 +59,8 @@ func OTelClientInterceptor(ctx context.Context, info *helloworld.MethodInfo, req
 	return err
 }
 
-func OTelServerInterceptor(ctx context.Context, req proto.Message, info *helloworld.MethodInfo, handler helloworld.ServerHandler) (proto.Message, error) {
-	headers := helloworld.HeadersFromContext(ctx)
+func OTelServerInterceptor(ctx context.Context, req proto.Message, info *protonats.MethodInfo, handler protonats.UnaryHandler) (proto.Message, error) {
+	headers := protonats.HeadersFromContext(ctx)
 	traceID := headers.Get("traceID")
 	if traceID == "" {
 		fmt.Println("OTelServerInterceptor: traceID not found in headers")
