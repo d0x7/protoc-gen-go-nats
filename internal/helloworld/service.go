@@ -63,7 +63,7 @@ func (c *helloWorldServiceNATSClient) HelloWorld(ctx context.Context, req *Hello
 
 		// Create the NATS Message
 		msg := &nats_go.Msg{
-			Subject: subject,
+			Subject: options.Subject(subject),
 			Data:    data,
 			Header:  nats_go.Header{},
 		}
@@ -179,8 +179,9 @@ func _newHelloWorldServiceServer(service micro.Service, server HelloWorldService
 
 		// 4. Define the Method Info
 		info := &MethodInfo{
-			Subject:    request.Subject(),
-			FullMethod: "service.HelloWorldService.HelloWorld",
+			Subject: request.Subject(),
+			Service: "HelloWorldService",
+			Method:  "HelloWorld",
 		}
 
 		// 5. Define the "Final Handler"

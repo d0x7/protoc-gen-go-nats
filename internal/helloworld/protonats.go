@@ -60,6 +60,8 @@ type ServerInterceptor func(ctx context.Context, req proto.Message, info *Method
 
 // MethodInfo provides info about the RPC to the interceptor
 type MethodInfo struct {
-	Subject    string
-	FullMethod string // e.g. "service.HelloWorldService.HelloWorld"
+	Subject string // e.g. "service.HelloWorldService.HelloWorld" or "service.HelloWorldService.HelloWorld.<instanceID>"
+	Service string // HelloWorldService
+	Method  string // HelloWorld
+	//FullMethod string // e.g. "service.HelloWorldService.HelloWorld"
 }
