@@ -498,6 +498,8 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 	g.P("return err")
 	g.P("}")
 	g.P()
+	g.P("options.ApplyResponseHeaders(respMsg.Header)")
+	g.P()
 	g.P("if errMsg, errCode := respMsg.Header.Get(", microPkg.Ident("ErrorHeader"), "), respMsg.Header.Get(", microPkg.Ident("ErrorCodeHeader"), "); len(errMsg) > 0 && len(errCode) > 0 {")
 	g.P("if len(respMsg.Data) == 0 {")
 	g.P("return ", goNatsPkg.Ident("ServiceError"), "{Code: errCode, Description: errMsg}")
