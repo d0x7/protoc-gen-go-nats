@@ -170,6 +170,7 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) error 
 	g.P("}")
 
 	g.P("func _new", service.GoName, "Server(service micro.Service, server ", service.GoName, "NATSServer, opts *", goNatsImplPkg.Ident("ServerOpts"), ") {")
+	g.P("serviceIDHeaderOpt := ", microPkg.Ident("WithHeaders"), "(", microPkg.Ident("Headers"), "{", goNatsImplPkg.Ident("ServiceIDHeader"), ": []string{service.Info().ID}})")
 	g.P("var err error")
 	g.P("_ = err") // In case there are no more methods so that err isn't unused
 	g.P()
@@ -206,6 +207,7 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) error 
 		g.P()
 
 		g.P("func _new", service.GoName, "LeaderServer(service micro.Service, server ", service.GoName, "NATSLeaderServer, opts *", goNatsImplPkg.Ident("ServerOpts"), ") {")
+		g.P("serviceIDHeaderOpt := ", microPkg.Ident("WithHeaders"), "(", microPkg.Ident("Headers"), "{", goNatsImplPkg.Ident("ServiceIDHeader"), ": []string{service.Info().ID}})")
 		g.P("var err error")
 		g.P("_ = err") // In case there are no more methods so that err isn't unused
 
@@ -238,6 +240,7 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) error 
 		g.P()
 
 		g.P("func _new", service.GoName, "FollowerServer(service micro.Service, server ", service.GoName, "NATSFollowerServer, opts *", goNatsImplPkg.Ident("ServerOpts"), ") {")
+		g.P("serviceIDHeaderOpt := ", microPkg.Ident("WithHeaders"), "(", microPkg.Ident("Headers"), "{", goNatsImplPkg.Ident("ServiceIDHeader"), ": []string{service.Info().ID}})")
 		g.P("var err error")
 		g.P("_ = err") // In case there are no more methods so that err isn't unused
 
@@ -271,7 +274,7 @@ func generateEndpointHandler(g *protogen.GeneratedFile, service *protogen.Servic
 		chainReq = handlerReq
 		g.P("var req ", method.Input.GoIdent)
 		g.P("if err := ", protoUnmarshal, "(request.Data(), &req); err != nil {")
-		g.P("request.Error(", strconv.Quote("560"), ", ", strconv.Quote("Failed to unmarshal proto message"), ", []byte(err.Error()))")
+		g.P("request.Error(", strconv.Quote("560"), ", ", strconv.Quote("Failed to unmarshal proto message"), ", []byte(err.Error()), serviceIDHeaderOpt)")
 		g.P("return")
 		g.P("}")
 		g.P()
@@ -328,9 +331,9 @@ func generateEndpointHandler(g *protogen.GeneratedFile, service *protogen.Servic
 	g.P("}")
 	g.P("var serverErr ", goNatsPkg.Ident("ServerError"))
 	g.P("if ", errorsPkg.Ident("As"), "(err, &serverErr) {")
-	g.P("request.Error(serverErr.Code, serverErr.Description, serverErr.GetWrapped(), serverErr.GetOptHeaders())")
+	g.P("request.Error(serverErr.Code, serverErr.Description, serverErr.GetWrapped(), serverErr.GetOptHeaders(), serviceIDHeaderOpt)")
 	g.P("} else {")
-	g.P("request.Error(", strconv.Quote("500"), ", ", strconv.Quote("Internal server error"), ", []byte(err.Error()))")
+	g.P("request.Error(", strconv.Quote("500"), ", ", strconv.Quote("Internal server error"), ", []byte(err.Error()), serviceIDHeaderOpt)")
 	g.P("}")
 	g.P("return")
 	g.P("}")
@@ -338,12 +341,12 @@ func generateEndpointHandler(g *protogen.GeneratedFile, service *protogen.Servic
 	if method.Output.Location.SourceFile != emptyPb {
 		g.P("data, err := ", protoMarshal, "(response)")
 		g.P("if err != nil {")
-		g.P("request.Error(", strconv.Quote("560"), ", ", strconv.Quote("Failed to marshal proto message"), ", []byte(err.Error()))")
+		g.P("request.Error(", strconv.Quote("560"), ", ", strconv.Quote("Failed to marshal proto message"), ", []byte(err.Error()), serviceIDHeaderOpt)")
 		g.P("return")
 		g.P("}")
-		g.P("request.Respond(data)")
+		g.P("request.Respond(data, serviceIDHeaderOpt)")
 	} else {
-		g.P("request.Respond(nil)")
+		g.P("request.Respond(nil, serviceIDHeaderOpt)")
 	}
 	g.P("})")
 
