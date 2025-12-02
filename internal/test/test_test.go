@@ -26,7 +26,7 @@ func TestInfo(t *testing.T) {
 
 	t.Run("WithFinisher", func(t *testing.T) {
 		now := time.Now()
-		info, err := cli.Info()
+		info, err := cli.Info(t.Context())
 		dur := time.Since(now)
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
@@ -41,7 +41,7 @@ func TestInfo(t *testing.T) {
 
 	t.Run("WithoutFinisher", func(t *testing.T) {
 		now := time.Now()
-		info, err := cli.Info(protonats.WithoutFinisher())
+		info, err := cli.Info(t.Context(), protonats.WithoutFinisher())
 		dur := time.Since(now)
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
@@ -128,7 +128,7 @@ func TestNormalBroadcast(t *testing.T) {
 
 	t.Run("TestTest", func(t *testing.T) {
 		t.Parallel()
-		resp, srvErrs, err := cli.NormalBroadcastTestTest(&Test{Test: "Test Client"})
+		resp, srvErrs, err := cli.NormalBroadcastTestTest(t.Context(), &Test{Test: "Test Client"})
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -152,7 +152,7 @@ func TestNormalBroadcast(t *testing.T) {
 
 	t.Run("EmptyTest", func(t *testing.T) {
 		t.Parallel()
-		resp, srvErrs, err := cli.NormalBroadcastEmptyTest()
+		resp, srvErrs, err := cli.NormalBroadcastEmptyTest(t.Context())
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -176,7 +176,7 @@ func TestNormalBroadcast(t *testing.T) {
 
 	t.Run("TestEmpty", func(t *testing.T) {
 		t.Parallel()
-		srvErrs, err := cli.NormalBroadcastTestEmpty(&Test{Test: "Test Client"})
+		srvErrs, err := cli.NormalBroadcastTestEmpty(t.Context(), &Test{Test: "Test Client"})
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -187,7 +187,7 @@ func TestNormalBroadcast(t *testing.T) {
 
 	t.Run("EmptyEmpty", func(t *testing.T) {
 		t.Parallel()
-		srvErrs, err := cli.NormalBroadcastEmptyEmpty()
+		srvErrs, err := cli.NormalBroadcastEmptyEmpty(t.Context())
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -224,11 +224,11 @@ func TestErr(t *testing.T) {
 		if err == nil {
 			t.Fatalf("Expected error, got nil")
 		}
-		if resp != nil {
-			t.Fatalf("Expected nil response, got: %v", resp)
-		}
 		if !protonats.IsServiceError(err) {
 			t.Fatalf("Expected service error, got: %v", err)
+			if resp != nil {
+				t.Fatalf("Expected nil response, got: %v", resp)
+			}
 		}
 	})
 }
@@ -246,7 +246,7 @@ func TestErrBroadcast(t *testing.T) {
 
 	t.Run("ServiceError", func(t *testing.T) {
 		t.Parallel()
-		resp, srvErrs, err := cli.ErrServiceErrorBroadcast(&Test{Test: "Test Client"})
+		resp, srvErrs, err := cli.ErrServiceErrorBroadcast(t.Context(), &Test{Test: "Test Client"})
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -265,7 +265,7 @@ func TestErrBroadcast(t *testing.T) {
 
 	t.Run("ServerError", func(t *testing.T) {
 		t.Parallel()
-		resp, srvErrs, err := cli.ErrServerErrorBroadcast(&Test{Test: "Test Client"})
+		resp, srvErrs, err := cli.ErrServerErrorBroadcast(t.Context(), &Test{Test: "Test Client"})
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -349,7 +349,7 @@ func TestLeaderOnlyBroadcast(t *testing.T) {
 
 	t.Run("TestTest", func(t *testing.T) {
 		t.Parallel()
-		resp, srvErrs, err := cli.LeaderOnlyBroadcastTestTest(&Test{Test: "Test Client"})
+		resp, srvErrs, err := cli.LeaderOnlyBroadcastTestTest(t.Context(), &Test{Test: "Test Client"})
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -366,7 +366,7 @@ func TestLeaderOnlyBroadcast(t *testing.T) {
 
 	t.Run("EmptyTest", func(t *testing.T) {
 		t.Parallel()
-		resp, srvErrs, err := cli.LeaderOnlyBroadcastEmptyTest()
+		resp, srvErrs, err := cli.LeaderOnlyBroadcastEmptyTest(t.Context())
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -383,7 +383,7 @@ func TestLeaderOnlyBroadcast(t *testing.T) {
 
 	t.Run("TestEmpty", func(t *testing.T) {
 		t.Parallel()
-		srvErrs, err := cli.LeaderOnlyBroadcastTestEmpty(&Test{Test: "Test Client"})
+		srvErrs, err := cli.LeaderOnlyBroadcastTestEmpty(t.Context(), &Test{Test: "Test Client"})
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -394,7 +394,7 @@ func TestLeaderOnlyBroadcast(t *testing.T) {
 
 	t.Run("EmptyEmpty", func(t *testing.T) {
 		t.Parallel()
-		srvErrs, err := cli.LeaderOnlyBroadcastEmptyEmpty()
+		srvErrs, err := cli.LeaderOnlyBroadcastEmptyEmpty(t.Context())
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -481,7 +481,7 @@ func TestFollowerOnlyBroadcast(t *testing.T) {
 
 	t.Run("TestTest", func(t *testing.T) {
 		t.Parallel()
-		resp, srvErrs, err := cli.FollowerOnlyBroadcastTestTest(&Test{Test: "Test Client"})
+		resp, srvErrs, err := cli.FollowerOnlyBroadcastTestTest(t.Context(), &Test{Test: "Test Client"})
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -505,7 +505,7 @@ func TestFollowerOnlyBroadcast(t *testing.T) {
 
 	t.Run("EmptyTest", func(t *testing.T) {
 		t.Parallel()
-		resp, srvErrs, err := cli.FollowerOnlyBroadcastEmptyTest()
+		resp, srvErrs, err := cli.FollowerOnlyBroadcastEmptyTest(t.Context())
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -529,7 +529,7 @@ func TestFollowerOnlyBroadcast(t *testing.T) {
 
 	t.Run("TestEmpty", func(t *testing.T) {
 		t.Parallel()
-		srvErrs, err := cli.FollowerOnlyBroadcastTestEmpty(&Test{Test: "Test Client"})
+		srvErrs, err := cli.FollowerOnlyBroadcastTestEmpty(t.Context(), &Test{Test: "Test Client"})
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -540,7 +540,7 @@ func TestFollowerOnlyBroadcast(t *testing.T) {
 
 	t.Run("EmptyEmpty", func(t *testing.T) {
 		t.Parallel()
-		srvErrs, err := cli.FollowerOnlyBroadcastEmptyEmpty()
+		srvErrs, err := cli.FollowerOnlyBroadcastEmptyEmpty(t.Context())
 		if err != nil {
 			t.Fatalf("Error calling method: %v", err)
 		}
@@ -568,7 +568,7 @@ func TestExtraSubject(t *testing.T) {
 		id := fmt.Sprintf("instance%02d", i)
 		t.Run("EmptyTest/"+id, func(t *testing.T) {
 			t.Parallel()
-			resp, srvErrs, err := cli.NormalBroadcastEmptyTest(protonats.WithExtraSubject(id))
+			resp, srvErrs, err := cli.NormalBroadcastEmptyTest(t.Context(), protonats.WithExtraSubject(id))
 			if err != nil {
 				t.Fatalf("Error calling method: %v", err)
 			}
@@ -604,12 +604,18 @@ func TestContext(t *testing.T) {
 
 	t.Run("WithTimeout", func(t *testing.T) {
 		t.Parallel()
+		start := time.Now()
 		err := cli.ThreeSecondDelay(t.Context(), protonats.WithTimeout(1*time.Second))
 		if err == nil {
 			t.Fatalf("Expected error, got nil")
 		}
-		if !errors.Is(err, nats.ErrTimeout) {
-			t.Fatalf("Expected timeout error, got: %v", err)
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("Expected deadline exceeded error, got: %v", err)
+		}
+		elapsed := time.Since(start)
+
+		if elapsed < time.Second || elapsed > 1100*time.Millisecond {
+			t.Fatalf("expected 1s timeout, got %v", elapsed)
 		}
 	})
 
@@ -621,7 +627,7 @@ func TestContext(t *testing.T) {
 			time.Sleep(1 * time.Second)
 			cancel()
 		}()
-		err := cli.ThreeSecondDelay(t.Context(), protonats.WithContext(ctx))
+		err := cli.ThreeSecondDelay(ctx)
 		if err == nil {
 			t.Fatalf("Expected error, got nil")
 		}
@@ -632,14 +638,20 @@ func TestContext(t *testing.T) {
 
 	t.Run("ContextDeadline", func(t *testing.T) {
 		t.Parallel()
+		start := time.Now()
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
-		err := cli.ThreeSecondDelay(t.Context(), protonats.WithContext(ctx))
+		err := cli.ThreeSecondDelay(ctx)
 		if err == nil {
 			t.Fatalf("Expected error, got nil")
 		}
 		if !errors.Is(err, context.DeadlineExceeded) {
 			t.Fatalf("Expected deadline exceeded error, got: %v", err)
+		}
+		elapsed := time.Since(start)
+
+		if elapsed < time.Second || elapsed > 1100*time.Millisecond {
+			t.Fatalf("expected 1s timeout, got %v", elapsed)
 		}
 	})
 }
