@@ -448,7 +448,7 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 	generateReqFunc(g, cliName, service.GoName, "Ping", goNatsPkg.Ident("Ping"), micro.PingVerb)
 
 	// Generate handle function
-	g.P("func (c *", unexport(cliName), ") handle(ctx ", contextPkg.Ident("Context"), ", req ", protoMessage, ", info *", goNatsPkg.Ident("MethodInfo"), ", out ", protoMessage, ", opts ...", goNatsPkg.Ident("CallOption"), ") (err error) {")
+	g.P("func (c *", unexport(cliName), ") handle(ctx ", contextPkg.Ident("Context"), ", req ", protoMessage, ", info *", goNatsPkg.Ident("MethodInfo"), ", out ", protoMessage, ", opts ...", goNatsPkg.Ident("CallOption"), ") error {")
 	g.P("var headerMap ", natsPkg.Ident("Header"))
 	g.P("if ctxHeaders := ", goNatsPkg.Ident("HeadersFromOutgoingContext"), "(ctx); ctxHeaders != nil {")
 	g.P("headerMap = ", natsPkg.Ident("Header"), "(ctxHeaders)")
