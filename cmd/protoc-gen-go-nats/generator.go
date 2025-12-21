@@ -36,6 +36,13 @@ var (
 
 	emptyPb = "google/protobuf/empty.proto"
 
+	// ProtoNATS Method Types
+	unaryMethodType     = goNatsPkg.Ident("MethodTypeUnary")
+	streamMethodType    = goNatsPkg.Ident("MethodTypeStream")
+	broadcastMethodType = goNatsPkg.Ident("MethodTypeBroadcast")
+	leaderMethodType    = goNatsPkg.Ident("MethodTypeLeader")
+	followerMethodType  = goNatsPkg.Ident("MethodTypeFollower")
+
 	// reservedKeywords is a map of reserved keywords that cannot be used as method names
 	reservedKeywords = map[string]struct{}{
 		"listinstances": {},
@@ -287,6 +294,7 @@ func generateEndpointHandler(g *protogen.GeneratedFile, service *protogen.Servic
 	g.P("Subject: request.Subject(),")
 	g.P("Service: ", strconv.Quote(service.GoName), ",")
 	g.P("Method: ", strconv.Quote(method.GoName), ",")
+	g.P("Type: ", methodTypeIdent(method), ",")
 	g.P("}")
 	g.P()
 
@@ -686,6 +694,7 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 			g.P("Subject: ", strconv.Quote(plugin.SubjectName(service, method)), ",")
 			g.P("Service: ", strconv.Quote(service.GoName), ",")
 			g.P("Method: ", strconv.Quote(method.GoName), ",")
+			g.P("Type: ", methodTypeIdent(method), ",")
 			g.P("}")
 			g.P()
 			g.P("if err := c.handle(ctx, ", handleReq, ", info, ", handleResp, ", opts...); err != nil {")
@@ -727,4 +736,40 @@ func generateService(g *protogen.GeneratedFile, service *protogen.Service) error
 		return err
 	}
 	return nil
+}
+
+func GetMethodType(method *protogen.Method) protonats.MethodType {
+	if consensusTarget := plugin.GetConsensusTarget(method); consensusTarget != nil {
+		switch *consensusTarget {
+		case protonats.ConsensusTarget_FOLLOWER:
+			return protonats.MethodTypeFollower
+		case protonats.ConsensusTarget_LEADER:
+			return protonats.MethodTypeLeader
+		}
+	}
+	if plugin.IsUsingBroadcasting(method) {
+		return protonats.MethodTypeBroadcast
+	}
+	if method.Desc.IsStreamingServer() || method.Desc.IsStreamingClient() {
+		return protonats.MethodTypeStream
+	}
+	return protonats.MethodTypeUnary
+}
+
+func methodTypeIdent(method *protogen.Method) protogen.GoIdent {
+	methodType := GetMethodType(method)
+	switch methodType {
+	case protonats.MethodTypeUnary:
+		return unaryMethodType
+	case protonats.MethodTypeStream:
+		return streamMethodType
+	case protonats.MethodTypeBroadcast:
+		return broadcastMethodType
+	case protonats.MethodTypeLeader:
+		return leaderMethodType
+	case protonats.MethodTypeFollower:
+		return followerMethodType
+	default:
+		panic(fmt.Sprintf("unknown method type '%d'", methodType))
+	}
 }
