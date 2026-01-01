@@ -40,8 +40,6 @@ var (
 	unaryMethodType     = goNatsPkg.Ident("MethodTypeUnary")
 	streamMethodType    = goNatsPkg.Ident("MethodTypeStream")
 	broadcastMethodType = goNatsPkg.Ident("MethodTypeBroadcast")
-	leaderMethodType    = goNatsPkg.Ident("MethodTypeLeader")
-	followerMethodType  = goNatsPkg.Ident("MethodTypeFollower")
 
 	// reservedKeywords is a map of reserved keywords that cannot be used as method names
 	reservedKeywords = map[string]struct{}{
@@ -81,8 +79,6 @@ func generateFile(gen *protogen.Plugin, file *protogen.File) error {
 func generateServer(g *protogen.GeneratedFile, service *protogen.Service) error {
 	srvName := service.GoName + "NATSServer"
 
-	var leaderMethods, followerMethods []string
-
 	// Generate server interface
 	g.P("//region Server")
 	g.P("type ", srvName, " interface {")
@@ -106,43 +102,11 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) error 
 		}
 		fn := fmt.Sprintf("%s%s(ctx %s, %s) (%serror)", method.Comments.Leading, method.GoName, g.QualifiedGoIdent(ctx), req, resp)
 
-		if consensusTarget := plugin.GetConsensusTarget(method); consensusTarget != nil {
-			if *consensusTarget == protonats.ConsensusTarget_LEADER {
-				leaderMethods = append(leaderMethods, fn)
-			} else {
-				followerMethods = append(followerMethods, fn)
-			}
-		} else {
-			g.P(fn)
-		}
-	}
-	if len(leaderMethods) > 0 {
-		g.P(service.GoName, "NATSLeaderServer")
-	}
-	if len(followerMethods) > 0 {
-		g.P(service.GoName, "NATSFollowerServer")
+		g.P(fn)
 	}
 
 	g.P("}")
 	g.P()
-
-	// Generate Follower/leader interface if there are any consensus-based methods
-	if len(leaderMethods) > 0 {
-		g.P("type ", service.GoName, "NATSLeaderServer interface {")
-		for _, method := range leaderMethods {
-			g.P(method)
-		}
-		g.P("}")
-		g.P()
-	}
-	if len(followerMethods) > 0 {
-		g.P("type ", service.GoName, "NATSFollowerServer interface {")
-		for _, method := range followerMethods {
-			g.P(method)
-		}
-		g.P("}")
-		g.P()
-	}
 
 	// Generate SetId interface
 	g.P("type ", service.GoName, "Id interface {")
@@ -163,16 +127,6 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) error 
 	g.P("_new", service.GoName, "Server(service, server, options)")
 	g.P()
 
-	if len(leaderMethods) > 0 {
-		g.P("if !options.WithoutLeaderFunctions {")
-		g.P("_new", service.GoName, "LeaderServer(service, server, options)")
-		g.P("}")
-	}
-	if len(followerMethods) > 0 {
-		g.P("if !options.WithoutFollowerFunctions {")
-		g.P("_new", service.GoName, "FollowerServer(service, server, options)")
-		g.P("}")
-	}
 	g.P("return service")
 	g.P("}")
 
@@ -189,80 +143,10 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) error 
 			// TODO: Skipping currently unsupported streaming methods for now
 			continue
 		}
-		if plugin.GetConsensusTarget(method) != nil {
-			continue
-		}
 		generateEndpointHandler(g, service, method)
 	}
 
 	g.P("}")
-	g.P()
-
-	// Generate NewLeaderServer function
-	if len(leaderMethods) > 0 {
-		g.P("func New", service.GoName, "NATSLeaderServer(nc *", natsConn, ", server ", service.GoName, "NATSLeaderServer, opts ...", goNatsPkg.Ident("ServerOption"), ") ", microPkg.Ident("Service"), " {")
-		g.P("service, options, err := ", goNatsImplPkg.Ident("NewService"), "(", strconv.Quote(service.GoName), ", nc, server, opts...)")
-		g.P("if err != nil {")
-		g.P("panic(err) // TODO: Update this to proper error handling")
-		g.P("}")
-		g.P("if setId, ok := server.(", service.GoName, "Id); ok {")
-		g.P("setId.Set", service.GoName, "Id(service.Info().ID)")
-		g.P("}")
-		g.P("_new", service.GoName, "LeaderServer(service, server, options)")
-		g.P("return service")
-		g.P("}")
-		g.P()
-
-		g.P("func _new", service.GoName, "LeaderServer(service micro.Service, server ", service.GoName, "NATSLeaderServer, opts *", goNatsImplPkg.Ident("ServerOpts"), ") {")
-		g.P("serviceIDHeaderOpt := ", microPkg.Ident("WithHeaders"), "(", microPkg.Ident("Headers"), "{", goNatsImplPkg.Ident("ServiceIDHeader"), ": []string{service.Info().ID}})")
-		g.P("var err error")
-		g.P("_ = err") // In case there are no more methods so that err isn't unused
-
-		for _, method := range service.Methods {
-			if method.Desc.IsStreamingClient() || method.Desc.IsStreamingServer() {
-				// TODO: Skipping currently unsupported streaming methods for now
-				continue
-			}
-			if plugin.IsConsensusLeader(method) {
-				generateEndpointHandler(g, service, method)
-			}
-		}
-		g.P("}")
-		g.P()
-	}
-
-	// Generate NewFollowerServer function
-	if len(followerMethods) > 0 {
-		g.P("func New", service.GoName, "NATSFollowerServer(nc *", natsConn, ", server ", service.GoName, "NATSFollowerServer, opts ...", goNatsPkg.Ident("ServerOption"), ") ", microPkg.Ident("Service"), " {")
-		g.P("service, options, err := ", goNatsImplPkg.Ident("NewService"), "(", strconv.Quote(service.GoName), ", nc, server, opts...)")
-		g.P("if err != nil {")
-		g.P("panic(err) // TODO: Update this to proper error handling")
-		g.P("}")
-		g.P("if setId, ok := server.(", service.GoName, "Id); ok {")
-		g.P("setId.Set", service.GoName, "Id(service.Info().ID)")
-		g.P("}")
-		g.P("_new", service.GoName, "FollowerServer(service, server, options)")
-		g.P("return service")
-		g.P("}")
-		g.P()
-
-		g.P("func _new", service.GoName, "FollowerServer(service micro.Service, server ", service.GoName, "NATSFollowerServer, opts *", goNatsImplPkg.Ident("ServerOpts"), ") {")
-		g.P("serviceIDHeaderOpt := ", microPkg.Ident("WithHeaders"), "(", microPkg.Ident("Headers"), "{", goNatsImplPkg.Ident("ServiceIDHeader"), ": []string{service.Info().ID}})")
-		g.P("var err error")
-		g.P("_ = err") // In case there are no more methods so that err isn't unused
-
-		for _, method := range service.Methods {
-			if method.Desc.IsStreamingClient() || method.Desc.IsStreamingServer() {
-				// TODO: Skipping currently unsupported streaming methods for now
-				continue
-			}
-			if plugin.IsConsensusFollower(method) {
-				generateEndpointHandler(g, service, method)
-			}
-		}
-		g.P("}")
-		g.P()
-	}
 	g.P("//endregion")
 	return nil
 }
@@ -739,14 +623,6 @@ func generateService(g *protogen.GeneratedFile, service *protogen.Service) error
 }
 
 func GetMethodType(method *protogen.Method) protonats.MethodType {
-	if consensusTarget := plugin.GetConsensusTarget(method); consensusTarget != nil {
-		switch *consensusTarget {
-		case protonats.ConsensusTarget_FOLLOWER:
-			return protonats.MethodTypeFollower
-		case protonats.ConsensusTarget_LEADER:
-			return protonats.MethodTypeLeader
-		}
-	}
 	if plugin.IsUsingBroadcasting(method) {
 		return protonats.MethodTypeBroadcast
 	}
@@ -765,10 +641,6 @@ func methodTypeIdent(method *protogen.Method) protogen.GoIdent {
 		return streamMethodType
 	case protonats.MethodTypeBroadcast:
 		return broadcastMethodType
-	case protonats.MethodTypeLeader:
-		return leaderMethodType
-	case protonats.MethodTypeFollower:
-		return followerMethodType
 	default:
 		panic(fmt.Sprintf("unknown method type '%d'", methodType))
 	}

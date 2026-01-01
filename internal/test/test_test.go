@@ -19,7 +19,7 @@ func TestInfo(t *testing.T) {
 	t.Cleanup(instance.Stop)
 	var ids []string
 	for range 10 {
-		id := NewTestServiceNATSServer(instance.Conn, new(testImplementation), protonats.WithoutLeaderFns(), protonats.WithoutFollowerFns()).Info().ID
+		id := NewTestServiceNATSServer(instance.Conn, new(testImplementation)).Info().ID
 		ids = append(ids, id)
 	}
 	cli := NewTestServiceNATSClient(instance.Conn)
@@ -61,7 +61,7 @@ func TestNormal(t *testing.T) {
 	t.Cleanup(instance.Stop)
 	var ids []string
 	for range 3 {
-		id := NewTestServiceNATSServer(instance.Conn, new(testImplementation), protonats.WithoutLeaderFns(), protonats.WithoutFollowerFns()).Info().ID
+		id := NewTestServiceNATSServer(instance.Conn, new(testImplementation)).Info().ID
 		ids = append(ids, id)
 	}
 	cli := NewTestServiceNATSClient(instance.Conn)
@@ -121,7 +121,7 @@ func TestNormalBroadcast(t *testing.T) {
 	t.Cleanup(instance.Stop)
 	var ids []string
 	for range 3 {
-		id := NewTestServiceNATSServer(instance.Conn, new(testImplementation), protonats.WithoutLeaderFns(), protonats.WithoutFollowerFns()).Info().ID
+		id := NewTestServiceNATSServer(instance.Conn, new(testImplementation)).Info().ID
 		ids = append(ids, id)
 	}
 	cli := NewTestServiceNATSClient(instance.Conn)
@@ -201,7 +201,7 @@ func TestErr(t *testing.T) {
 	t.Parallel()
 	instance := newNATS(t)
 	t.Cleanup(instance.Stop)
-	NewTestServiceNATSServer(instance.Conn, new(testImplementation), protonats.WithoutLeaderFns(), protonats.WithoutFollowerFns())
+	NewTestServiceNATSServer(instance.Conn, new(testImplementation))
 	cli := NewTestServiceNATSClient(instance.Conn)
 
 	t.Run("ServiceError", func(t *testing.T) {
@@ -226,9 +226,9 @@ func TestErr(t *testing.T) {
 		}
 		if !protonats.IsServiceError(err) {
 			t.Fatalf("Expected service error, got: %v", err)
-			if resp != nil {
-				t.Fatalf("Expected nil response, got: %v", resp)
-			}
+		}
+		if resp != nil {
+			t.Fatalf("Expected nil response, got: %v", resp)
 		}
 	})
 }
@@ -279,273 +279,6 @@ func TestErrBroadcast(t *testing.T) {
 			if !protonats.IsServiceError(e) {
 				t.Fatalf("Expected service error, got: %v", e)
 			}
-		}
-	})
-}
-
-func TestLeaderOnly(t *testing.T) {
-	t.Parallel()
-	instance := newNATS(t)
-	t.Cleanup(instance.Stop)
-	for range 3 {
-		NewTestServiceNATSFollowerServer(instance.Conn, new(testImplementation))
-	}
-	leaderImpl := new(testImplementation)
-	NewTestServiceNATSLeaderServer(instance.Conn, leaderImpl)
-	if leaderImpl.id == "" {
-		t.Fatalf("Server id is empty")
-	}
-
-	cli := NewTestServiceNATSClient(instance.Conn)
-
-	t.Run("TestTest", func(t *testing.T) {
-		t.Parallel()
-		resp, err := cli.LeaderOnlyTestTest(t.Context(), &Test{Test: "Test Client"})
-		if err != nil {
-			t.Fatalf("Error calling method: %v", err)
-		}
-		if resp.Test != "leader replying to Test Client from "+leaderImpl.id {
-			t.Fatalf("Unexpected response: %v", resp.Test)
-		}
-	})
-
-	t.Run("EmptyTest", func(t *testing.T) {
-		t.Parallel()
-		resp, err := cli.LeaderOnlyEmptyTest(t.Context())
-		if err != nil {
-			t.Fatalf("Error calling method: %v", err)
-		}
-		if resp.Test != "leader replying to empty from "+leaderImpl.id {
-			t.Fatalf("Unexpected response: %v", resp.Test)
-		}
-	})
-
-	t.Run("TestEmpty", func(t *testing.T) {
-		t.Parallel()
-		err := cli.LeaderOnlyTestEmpty(t.Context(), &Test{Test: "Test Client"})
-		if err != nil {
-			t.Fatalf("Error calling method: %v", err)
-		}
-	})
-
-	t.Run("EmptyEmpty", func(t *testing.T) {
-		t.Parallel()
-		err := cli.LeaderOnlyEmptyEmpty(t.Context())
-		if err != nil {
-			t.Fatalf("Error calling method: %v", err)
-		}
-	})
-}
-
-func TestLeaderOnlyBroadcast(t *testing.T) {
-	t.Parallel()
-	instance := newNATS(t)
-	t.Cleanup(instance.Stop)
-	for range 3 {
-		NewTestServiceNATSFollowerServer(instance.Conn, new(testImplementation))
-	}
-	id := NewTestServiceNATSLeaderServer(instance.Conn, new(testImplementation)).Info().ID
-	cli := NewTestServiceNATSClient(instance.Conn)
-
-	t.Run("TestTest", func(t *testing.T) {
-		t.Parallel()
-		resp, srvErrs, err := cli.LeaderOnlyBroadcastTestTest(t.Context(), &Test{Test: "Test Client"})
-		if err != nil {
-			t.Fatalf("Error calling method: %v", err)
-		}
-		if len(srvErrs) != 0 {
-			t.Fatalf("Unexpected server errors: %v", srvErrs)
-		}
-		if len(resp) != 1 {
-			t.Fatalf("Expected only one response, got %d: %v", len(resp), resp)
-		}
-		if resp[0].Test != "leader replying to Test Client from "+id {
-			t.Fatalf("Unexpected response: %v", resp[0].Test)
-		}
-	})
-
-	t.Run("EmptyTest", func(t *testing.T) {
-		t.Parallel()
-		resp, srvErrs, err := cli.LeaderOnlyBroadcastEmptyTest(t.Context())
-		if err != nil {
-			t.Fatalf("Error calling method: %v", err)
-		}
-		if len(srvErrs) != 0 {
-			t.Fatalf("Unexpected server errors: %v", srvErrs)
-		}
-		if len(resp) != 1 {
-			t.Fatalf("Expected only one response, got %d: %v", len(resp), resp)
-		}
-		if resp[0].Test != "leader replying to empty from "+id {
-			t.Fatalf("Unexpected response: %v", resp[0].Test)
-		}
-	})
-
-	t.Run("TestEmpty", func(t *testing.T) {
-		t.Parallel()
-		srvErrs, err := cli.LeaderOnlyBroadcastTestEmpty(t.Context(), &Test{Test: "Test Client"})
-		if err != nil {
-			t.Fatalf("Error calling method: %v", err)
-		}
-		if len(srvErrs) != 0 {
-			t.Fatalf("Unexpected server errors: %v", srvErrs)
-		}
-	})
-
-	t.Run("EmptyEmpty", func(t *testing.T) {
-		t.Parallel()
-		srvErrs, err := cli.LeaderOnlyBroadcastEmptyEmpty(t.Context())
-		if err != nil {
-			t.Fatalf("Error calling method: %v", err)
-		}
-		if len(srvErrs) != 0 {
-			t.Fatalf("Unexpected server errors: %v", srvErrs)
-		}
-	})
-}
-
-func TestFollowerOnly(t *testing.T) {
-	t.Parallel()
-	instance := newNATS(t)
-	t.Cleanup(instance.Stop)
-	var ids []string
-	for range 3 {
-		id := NewTestServiceNATSFollowerServer(instance.Conn, new(testImplementation)).Info().ID
-		ids = append(ids, id)
-	}
-	NewTestServiceNATSLeaderServer(instance.Conn, new(testImplementation))
-
-	cli := NewTestServiceNATSClient(instance.Conn)
-
-	t.Run("TestTest", func(t *testing.T) {
-		t.Parallel()
-		resp, err := cli.FollowerOnlyTestTest(t.Context(), &Test{Test: "Test Client"})
-		if err != nil {
-			t.Fatalf("Error calling method: %v", err)
-		}
-		re := regexp.MustCompile(`^follower replying to Test Client from ([a-zA-Z0-9]+)$`)
-		matches := re.FindStringSubmatch(resp.Test)
-		if len(matches) != 2 {
-			t.Fatalf("Response format doesn't match: %v", resp.Test)
-		}
-		if !slices.Contains(ids, matches[1]) {
-			t.Fatalf("Server ID not found in the list of follower IDs: %v", matches[1])
-		}
-	})
-
-	t.Run("EmptyTest", func(t *testing.T) {
-		t.Parallel()
-		resp, err := cli.FollowerOnlyEmptyTest(t.Context())
-		if err != nil {
-			t.Fatalf("Error calling method: %v", err)
-		}
-		re := regexp.MustCompile(`^follower replying to empty from ([a-zA-Z0-9]+)$`)
-		matches := re.FindStringSubmatch(resp.Test)
-		if len(matches) != 2 {
-			t.Fatalf("Response format doesn't match: %v", resp.Test)
-		}
-		if !slices.Contains(ids, matches[1]) {
-			t.Fatalf("Server ID not found in the list of follower IDs: %v", matches[1])
-		}
-	})
-
-	t.Run("TestEmpty", func(t *testing.T) {
-		t.Parallel()
-		err := cli.FollowerOnlyTestEmpty(t.Context(), &Test{Test: "Test Client"})
-		if err != nil {
-			t.Fatalf("Error calling method: %v", err)
-		}
-	})
-
-	t.Run("EmptyEmpty", func(t *testing.T) {
-		t.Parallel()
-		err := cli.FollowerOnlyEmptyEmpty(t.Context())
-		if err != nil {
-			t.Fatalf("Error calling method: %v", err)
-		}
-	})
-}
-
-func TestFollowerOnlyBroadcast(t *testing.T) {
-	t.Parallel()
-	instance := newNATS(t)
-	t.Cleanup(instance.Stop)
-	var ids []string
-	for range 3 {
-		id := NewTestServiceNATSFollowerServer(instance.Conn, new(testImplementation)).Info().ID
-		ids = append(ids, id)
-	}
-	NewTestServiceNATSLeaderServer(instance.Conn, new(testImplementation))
-
-	cli := NewTestServiceNATSClient(instance.Conn)
-
-	t.Run("TestTest", func(t *testing.T) {
-		t.Parallel()
-		resp, srvErrs, err := cli.FollowerOnlyBroadcastTestTest(t.Context(), &Test{Test: "Test Client"})
-		if err != nil {
-			t.Fatalf("Error calling method: %v", err)
-		}
-		if len(srvErrs) != 0 {
-			t.Fatalf("Unexpected server errors: %v", srvErrs)
-		}
-		if len(resp) != 3 {
-			t.Fatalf("Expected 3 responses, got %d: %v", len(resp), resp)
-		}
-		for _, r := range resp {
-			re := regexp.MustCompile(`^follower replying to Test Client from ([a-zA-Z0-9]+)$`)
-			matches := re.FindStringSubmatch(r.Test)
-			if len(matches) != 2 {
-				t.Fatalf("Response format doesn't match: %v", r.Test)
-			}
-			if !slices.Contains(ids, matches[1]) {
-				t.Fatalf("Server ID not found in the list of follower IDs: %v", matches[1])
-			}
-		}
-	})
-
-	t.Run("EmptyTest", func(t *testing.T) {
-		t.Parallel()
-		resp, srvErrs, err := cli.FollowerOnlyBroadcastEmptyTest(t.Context())
-		if err != nil {
-			t.Fatalf("Error calling method: %v", err)
-		}
-		if len(srvErrs) != 0 {
-			t.Fatalf("Unexpected server errors: %v", srvErrs)
-		}
-		if len(resp) != 3 {
-			t.Fatalf("Expected 3 responses, got %d: %v", len(resp), resp)
-		}
-		for _, r := range resp {
-			re := regexp.MustCompile(`^follower replying to empty from ([a-zA-Z0-9]+)$`)
-			matches := re.FindStringSubmatch(r.Test)
-			if len(matches) != 2 {
-				t.Fatalf("Response format doesn't match: %v", r.Test)
-			}
-			if !slices.Contains(ids, matches[1]) {
-				t.Fatalf("Server ID not found in the list of follower IDs: %v", matches[1])
-			}
-		}
-	})
-
-	t.Run("TestEmpty", func(t *testing.T) {
-		t.Parallel()
-		srvErrs, err := cli.FollowerOnlyBroadcastTestEmpty(t.Context(), &Test{Test: "Test Client"})
-		if err != nil {
-			t.Fatalf("Error calling method: %v", err)
-		}
-		if len(srvErrs) != 0 {
-			t.Fatalf("Unexpected server errors: %v", srvErrs)
-		}
-	})
-
-	t.Run("EmptyEmpty", func(t *testing.T) {
-		t.Parallel()
-		srvErrs, err := cli.FollowerOnlyBroadcastEmptyEmpty(t.Context())
-		if err != nil {
-			t.Fatalf("Error calling method: %v", err)
-		}
-		if len(srvErrs) != 0 {
-			t.Fatalf("Unexpected server errors: %v", srvErrs)
 		}
 	})
 }
