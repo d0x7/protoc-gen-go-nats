@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"github.com/stretchr/testify/require"
 	"xiam.li/protonats/go/protonats"
 )
 
@@ -19,8 +20,9 @@ func TestInfo(t *testing.T) {
 	t.Cleanup(instance.Stop)
 	var ids []string
 	for range 10 {
-		id := NewTestServiceNATSServer(instance.Conn, new(testImplementation)).Info().ID
-		ids = append(ids, id)
+		srv, err := NewTestServiceNATSServer(instance.Conn, new(testImplementation))
+		require.NoError(t, err)
+		ids = append(ids, srv.Info().ID)
 	}
 	cli := NewTestServiceNATSClient(instance.Conn)
 
@@ -61,8 +63,9 @@ func TestNormal(t *testing.T) {
 	t.Cleanup(instance.Stop)
 	var ids []string
 	for range 3 {
-		id := NewTestServiceNATSServer(instance.Conn, new(testImplementation)).Info().ID
-		ids = append(ids, id)
+		srv, err := NewTestServiceNATSServer(instance.Conn, new(testImplementation))
+		require.NoError(t, err)
+		ids = append(ids, srv.Info().ID)
 	}
 	cli := NewTestServiceNATSClient(instance.Conn)
 
@@ -121,8 +124,9 @@ func TestNormalBroadcast(t *testing.T) {
 	t.Cleanup(instance.Stop)
 	var ids []string
 	for range 3 {
-		id := NewTestServiceNATSServer(instance.Conn, new(testImplementation)).Info().ID
-		ids = append(ids, id)
+		srv, err := NewTestServiceNATSServer(instance.Conn, new(testImplementation))
+		require.NoError(t, err)
+		ids = append(ids, srv.Info().ID)
 	}
 	cli := NewTestServiceNATSClient(instance.Conn)
 
@@ -201,7 +205,8 @@ func TestErr(t *testing.T) {
 	t.Parallel()
 	instance := newNATS(t)
 	t.Cleanup(instance.Stop)
-	NewTestServiceNATSServer(instance.Conn, new(testImplementation))
+	_, err := NewTestServiceNATSServer(instance.Conn, new(testImplementation))
+	require.NoError(t, err)
 	cli := NewTestServiceNATSClient(instance.Conn)
 
 	t.Run("ServiceError", func(t *testing.T) {
@@ -239,8 +244,9 @@ func TestErrBroadcast(t *testing.T) {
 	t.Cleanup(instance.Stop)
 	var ids []string
 	for range 3 {
-		id := NewTestServiceNATSServer(instance.Conn, new(testImplementation)).Info().ID
-		ids = append(ids, id)
+		srv, err := NewTestServiceNATSServer(instance.Conn, new(testImplementation))
+		require.NoError(t, err)
+		ids = append(ids, srv.Info().ID)
 	}
 	cli := NewTestServiceNATSClient(instance.Conn)
 
@@ -291,7 +297,8 @@ func TestExtraSubject(t *testing.T) {
 	for i := range 3 {
 		id := fmt.Sprintf("instance%02d", i)
 		impl := new(testImplementation)
-		_ = NewTestServiceNATSServer(instance.Conn, impl, protonats.WithExtraSubjectSrv(id))
+		_, err := NewTestServiceNATSServer(instance.Conn, impl, protonats.WithExtraSubjectSrv(id))
+		require.NoError(t, err)
 		ids = append(ids, impl.id)
 		impl.id = impl.id + " aka " + id
 	}
@@ -332,7 +339,8 @@ func TestContext(t *testing.T) {
 	t.Parallel()
 	instance := newNATS(t)
 	t.Cleanup(instance.Stop)
-	_ = NewTestServiceNATSServer(instance.Conn, new(testImplementation))
+	_, err := NewTestServiceNATSServer(instance.Conn, new(testImplementation))
+	require.NoError(t, err)
 	cli := NewTestServiceNATSClient(instance.Conn)
 
 	t.Run("WithTimeout", func(t *testing.T) {

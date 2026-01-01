@@ -20,6 +20,7 @@ const (
 	protoPkg      = protogen.GoImportPath("google.golang.org/protobuf/proto")
 	goNatsPkg     = protogen.GoImportPath("xiam.li/protonats/go/protonats")
 	goNatsImplPkg = protogen.GoImportPath("xiam.li/protonats/go/impl")
+	fmtPkg        = protogen.GoImportPath("fmt")
 	errorsPkg     = protogen.GoImportPath("errors")
 	slogPkg       = protogen.GoImportPath("log/slog")
 	contextPkg    = protogen.GoImportPath("context")
@@ -115,25 +116,35 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) error 
 	g.P()
 
 	// Generate NewServer function
-	g.P("func New", srvName, "(nc *", natsConn, ", server ", srvName, ", opts ...", goNatsPkg.Ident("ServerOption"), ") ", microPkg.Ident("Service"), " {")
+	g.P("func New", srvName, "(nc *", natsConn, ", server ", srvName, ", opts ...", goNatsPkg.Ident("ServerOption"), ") (", microPkg.Ident("Service"), ", error) {")
 	g.P("service, options, err := ", goNatsImplPkg.Ident("NewService"), "(", strconv.Quote(service.GoName), ", nc, server, opts...)")
 	g.P("if err != nil {")
-	g.P("panic(err) // TODO: Update this to proper error handling")
+	g.P("return nil, err")
 	g.P("}")
+	g.P()
+
 	g.P("if setId, ok := server.(", service.GoName, "Id); ok {")
 	g.P("setId.Set", service.GoName, "Id(service.Info().ID)")
 	g.P("}")
-
-	g.P("_new", service.GoName, "Server(service, server, options)")
 	g.P()
 
-	g.P("return service")
+	g.P("if err := _new", service.GoName, "Server(service, server, options); err != nil {")
+	g.P("if serviceErr := service.Stop(); serviceErr != nil {")
+	g.P("return nil, ", errorsPkg.Ident("Join"), "(")
+	g.P(fmtPkg.Ident("Errorf"), "(", strconv.Quote("failed to create service: %w"), ", err),")
+	g.P(fmtPkg.Ident("Errorf"), "(", strconv.Quote("failed to stop service after creation failure: %w"), ", serviceErr),")
+	g.P(")")
 	g.P("}")
+	g.P("return nil, ", fmtPkg.Ident("Errorf"), "(", strconv.Quote("failed to create service: %w"), ", err)")
+	g.P("}")
+	g.P()
 
-	g.P("func _new", service.GoName, "Server(service micro.Service, server ", service.GoName, "NATSServer, opts *", goNatsImplPkg.Ident("ServerOpts"), ") {")
+	g.P("return service, nil")
+	g.P("}")
+	g.P()
+
+	g.P("func _new", service.GoName, "Server(service micro.Service, server ", service.GoName, "NATSServer, opts *", goNatsImplPkg.Ident("ServerOpts"), ") error {")
 	g.P("serviceIDHeaderOpt := ", microPkg.Ident("WithHeaders"), "(", microPkg.Ident("Headers"), "{", goNatsImplPkg.Ident("ServiceIDHeader"), ": []string{service.Info().ID}})")
-	g.P("var err error")
-	g.P("_ = err") // In case there are no more methods so that err isn't unused
 	g.P()
 
 	// Generate service endpoints
@@ -146,6 +157,7 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) error 
 		generateEndpointHandler(g, service, method)
 	}
 
+	g.P("return nil")
 	g.P("}")
 	g.P("//endregion")
 	return nil
@@ -201,6 +213,7 @@ func generateEndpointHandler(g *protogen.GeneratedFile, service *protogen.Servic
 	g.P()
 
 	// Call interceptor chain
+	g.P("var err error")
 	if method.Output.Location.SourceFile != emptyPb {
 		g.P("var response ", protoMessage)
 		g.P("if opts == nil || opts.UnaryInterceptor == nil {")
@@ -244,21 +257,18 @@ func generateEndpointHandler(g *protogen.GeneratedFile, service *protogen.Servic
 
 	if plugin.IsUsingBroadcasting(method) {
 		// Add a broadcast endpoint for the method
-		g.P("err = service.AddEndpoint(", strconv.Quote(method.GoName+"-Broadcast"), ", ", handler, ", ", microPkg.Ident("WithEndpointQueueGroup"), "(", nuidPkg.Ident("Next"), "()), opts.Subject(", strconv.Quote(plugin.SubjectName(service, method)), ", ", strconv.Quote(""), "))")
-		g.P("if err != nil {")
-		g.P("panic(err) // TODO: Update this to proper error handling")
+		g.P("if err := service.AddEndpoint(", strconv.Quote(method.GoName+"-Broadcast"), ", ", handler, ", ", microPkg.Ident("WithEndpointQueueGroup"), "(", nuidPkg.Ident("Next"), "()), opts.Subject(", strconv.Quote(plugin.SubjectName(service, method)), ", ", strconv.Quote(""), ")); err != nil {")
+		g.P("return err")
 		g.P("}")
 	} else {
 		// Add a shared endpoint for the method
-		g.P("err = service.AddEndpoint(", strconv.Quote(method.GoName), ", ", handler, ", opts.Subject(", strconv.Quote(plugin.SubjectName(service, method)), ", ", strconv.Quote(""), "))")
-		g.P("if err != nil {")
-		g.P("panic(err) // TODO: Update this to proper error handling")
+		g.P("if err := service.AddEndpoint(", strconv.Quote(method.GoName), ", ", handler, ", opts.Subject(", strconv.Quote(plugin.SubjectName(service, method)), ", ", strconv.Quote(""), ")); err != nil {")
+		g.P("return err")
 		g.P("}")
 	}
 	// Add a direct endpoint for the method
-	g.P("err = service.AddEndpoint(", strconv.Quote(method.GoName+"-Direct"), ", ", handler, ", opts.Subject(", strconv.Quote(plugin.SubjectName(service, method)), ", service.Info().ID))")
-	g.P("if err != nil {")
-	g.P("panic(err) // TODO: Update this to proper error handling")
+	g.P("if err := service.AddEndpoint(", strconv.Quote(method.GoName+"-Direct"), ", ", handler, ", opts.Subject(", strconv.Quote(plugin.SubjectName(service, method)), ", service.Info().ID)); err != nil {")
+	g.P("return err")
 	g.P("}")
 	g.P()
 }
