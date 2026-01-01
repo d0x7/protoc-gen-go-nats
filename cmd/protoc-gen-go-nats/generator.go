@@ -74,6 +74,7 @@ func generateFile(gen *protogen.Plugin, file *protogen.File) error {
 			return err
 		}
 	}
+	generateSharedFunctions(g)
 	return nil
 }
 
@@ -81,7 +82,7 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) error 
 	srvName := service.GoName + "NATSServer"
 
 	// Generate server interface
-	g.P("//region Server")
+	g.P("//region ", service.GoName, "Server")
 	g.P("type ", srvName, " interface {")
 	for _, method := range service.Methods {
 		if method.Desc.IsStreamingClient() || method.Desc.IsStreamingServer() {
@@ -160,6 +161,7 @@ func generateServer(g *protogen.GeneratedFile, service *protogen.Service) error 
 	g.P("return nil")
 	g.P("}")
 	g.P("//endregion")
+	g.P()
 	return nil
 }
 
@@ -273,103 +275,8 @@ func generateEndpointHandler(g *protogen.GeneratedFile, service *protogen.Servic
 	g.P()
 }
 
-func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error {
-	cliName := service.GoName + "NATSClient"
-
-	// Generate client interface
-	g.P("//region Client")
-	g.AnnotateSymbol(cliName, protogen.Annotation{Location: service.Location}) // TODO: Find out when to annotate symbols
-	g.P("type ", cliName, " interface {")
-	for _, method := range service.Methods {
-		if method.Desc.IsStreamingClient() || method.Desc.IsStreamingServer() {
-			// TODO: Skipping currently unsupported streaming methods for now
-			g.P("// ", method.GoName, " is a streaming method and is currently not supported")
-			continue
-		}
-		// Check if method.GoName is in reservedKeywords
-		if _, ok := reservedKeywords[strings.ToLower(method.GoName)]; ok {
-			return errors.New("reserved keyword '" + method.GoName + "' used as method name")
-		}
-		broadcasting := plugin.IsUsingBroadcasting(method)
-		var req, resp string
-		if method.Input.Location.SourceFile != emptyPb {
-			req = "req *" + g.QualifiedGoIdent(method.Input.GoIdent) + ", "
-		}
-		if method.Output.Location.SourceFile != emptyPb {
-			var prefix string
-			if broadcasting {
-				prefix = "[]"
-			}
-			resp = prefix + "*" + g.QualifiedGoIdent(method.Output.GoIdent) + ", "
-		}
-		g.AnnotateSymbol(cliName+"."+method.GoName, protogen.Annotation{Location: method.Location})
-		if broadcasting {
-			g.P(method.Comments.Leading, method.GoName, "(ctx ", ctx, ", ", req, "opts ...", goNatsPkg.Ident("CallOption"), ") (", resp, "[]", goNatsPkg.Ident("ServiceError"), ", error)")
-		} else {
-			g.P(method.Comments.Leading, method.GoName, "(ctx ", ctx, ", ", req, "opts ...", goNatsPkg.Ident("CallOption"), ") (", resp, "error)")
-		}
-	}
-	g.P("SetTimeout(", timeDuration, ")")
-	g.P("// ListInstances returns a list containing all instances of this service")
-	g.P("// This is a convenience method that calls ", goNatsPkg.Ident("Ping"), " with no options")
-	g.P("ListInstances(ctx ", ctx, ") ([]*", goNatsPkg.Ident("Ping"), ", error)")
-	g.P("// Ping sends a ping to either all instances or a specific instance of this service")
-	g.P("Ping(ctx ", ctx, ", opts ...", goNatsPkg.Ident("CallOption"), ") ([]*", goNatsPkg.Ident("Ping"), ", error)")
-	g.P("// Stats returns the stats of either all instances or a specific instance of this service")
-	g.P("Stats(ctx ", ctx, ", opts ...", goNatsPkg.Ident("CallOption"), ") ([]*micro.Stats, error)")
-	g.P("// Info returns the info of either all instances or a specific instance of this service")
-	g.P("Info(ctx ", ctx, ", opts ...", goNatsPkg.Ident("CallOption"), ") ([]*micro.Info, error)")
-	g.P("}")
-	g.P()
-
-	// Generate client struct implementation
-	g.P("type ", unexport(cliName), " struct {")
-	g.P("nc *", natsConn)
-	g.P("timeout ", timeDuration)
-	g.P("interceptor ", goNatsPkg.Ident("UnaryClientInterceptor"))
-	g.P("}")
-	g.P()
-
-	// Client struct functions
-
-	// Generate SetTimeout function
-	g.P("func (c *", unexport(cliName), ") SetTimeout(timeout ", timeDuration, ") {")
-	g.P("c.timeout = timeout")
-	g.P("}")
-	g.P()
-
-	// Generate ListInstances function
-	g.P("func (c *", unexport(cliName), ") ListInstances(ctx ", ctx, ") ([]*", goNatsPkg.Ident("Ping"), ", error) {")
-	g.P("return c.Ping(ctx)")
-	g.P("}")
-	g.P()
-
-	// Generate Ping/Stats/Info functions
-	generateReqFunc(g, cliName, service.GoName, "Stats", microPkg.Ident("Stats"), micro.StatsVerb)
-	generateReqFunc(g, cliName, service.GoName, "Info", microPkg.Ident("Info"), micro.InfoVerb)
-	generateReqFunc(g, cliName, service.GoName, "Ping", goNatsPkg.Ident("Ping"), micro.PingVerb)
-
-	// Generate handle function
-	g.P("func (c *", unexport(cliName), ") handle(ctx ", contextPkg.Ident("Context"), ", req ", protoMessage, ", info *", goNatsPkg.Ident("MethodInfo"), ", out ", protoMessage, ", opts ...", goNatsPkg.Ident("CallOption"), ") error {")
-	g.P("var headerMap ", natsPkg.Ident("Header"))
-	g.P("if ctxHeaders := ", goNatsPkg.Ident("HeadersFromOutgoingContext"), "(ctx); ctxHeaders != nil {")
-	g.P("headerMap = ", natsPkg.Ident("Header"), "(ctxHeaders)")
-	g.P("for key, values := range headerMap {")
-	g.P("headerMap[key] = values")
-	g.P("}")
-	g.P("} else {")
-	g.P("headerMap = ", natsPkg.Ident("Header"), "{}")
-	g.P("}")
-	g.P()
-	g.P("invoker := invoker(c.nc)")
-	g.P()
-	g.P("if c.interceptor == nil {")
-	g.P("return invoker(ctx, info, req, out, headerMap, opts...)")
-	g.P("} else {")
-	g.P("return c.interceptor(ctx, info, req, out, headerMap, invoker, opts...)")
-	g.P("}")
-	g.P("}")
-	g.P()
+func generateSharedFunctions(g *protogen.GeneratedFile) {
+	g.P("//region Shared")
 
 	// Generate invoker function
 	g.P("func invoker(conn *", natsConn, ") ", goNatsPkg.Ident("UnaryInvoker"), " {")
@@ -499,6 +406,108 @@ func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error 
 	g.P("return nil, serviceErrs, err")
 	g.P("case <-ctx.Done():")
 	g.P("return res, serviceErrs, nil")
+	g.P("}")
+	g.P("}")
+	g.P()
+
+	g.P("//endregion")
+	g.P()
+}
+
+func generateClient(g *protogen.GeneratedFile, service *protogen.Service) error {
+	cliName := service.GoName + "NATSClient"
+
+	// Generate client interface
+	g.P("//region ", service.GoName, "Client")
+	g.AnnotateSymbol(cliName, protogen.Annotation{Location: service.Location}) // TODO: Find out when to annotate symbols
+	g.P("type ", cliName, " interface {")
+	for _, method := range service.Methods {
+		if method.Desc.IsStreamingClient() || method.Desc.IsStreamingServer() {
+			// TODO: Skipping currently unsupported streaming methods for now
+			g.P("// ", method.GoName, " is a streaming method and is currently not supported")
+			continue
+		}
+		// Check if method.GoName is in reservedKeywords
+		if _, ok := reservedKeywords[strings.ToLower(method.GoName)]; ok {
+			return errors.New("reserved keyword '" + method.GoName + "' used as method name")
+		}
+		broadcasting := plugin.IsUsingBroadcasting(method)
+		var req, resp string
+		if method.Input.Location.SourceFile != emptyPb {
+			req = "req *" + g.QualifiedGoIdent(method.Input.GoIdent) + ", "
+		}
+		if method.Output.Location.SourceFile != emptyPb {
+			var prefix string
+			if broadcasting {
+				prefix = "[]"
+			}
+			resp = prefix + "*" + g.QualifiedGoIdent(method.Output.GoIdent) + ", "
+		}
+		g.AnnotateSymbol(cliName+"."+method.GoName, protogen.Annotation{Location: method.Location})
+		if broadcasting {
+			g.P(method.Comments.Leading, method.GoName, "(ctx ", ctx, ", ", req, "opts ...", goNatsPkg.Ident("CallOption"), ") (", resp, "[]", goNatsPkg.Ident("ServiceError"), ", error)")
+		} else {
+			g.P(method.Comments.Leading, method.GoName, "(ctx ", ctx, ", ", req, "opts ...", goNatsPkg.Ident("CallOption"), ") (", resp, "error)")
+		}
+	}
+	g.P("SetTimeout(", timeDuration, ")")
+	g.P("// ListInstances returns a list containing all instances of this service")
+	g.P("// This is a convenience method that calls ", goNatsPkg.Ident("Ping"), " with no options")
+	g.P("ListInstances(ctx ", ctx, ") ([]*", goNatsPkg.Ident("Ping"), ", error)")
+	g.P("// Ping sends a ping to either all instances or a specific instance of this service")
+	g.P("Ping(ctx ", ctx, ", opts ...", goNatsPkg.Ident("CallOption"), ") ([]*", goNatsPkg.Ident("Ping"), ", error)")
+	g.P("// Stats returns the stats of either all instances or a specific instance of this service")
+	g.P("Stats(ctx ", ctx, ", opts ...", goNatsPkg.Ident("CallOption"), ") ([]*micro.Stats, error)")
+	g.P("// Info returns the info of either all instances or a specific instance of this service")
+	g.P("Info(ctx ", ctx, ", opts ...", goNatsPkg.Ident("CallOption"), ") ([]*micro.Info, error)")
+	g.P("}")
+	g.P()
+
+	// Generate client struct implementation
+	g.P("type ", unexport(cliName), " struct {")
+	g.P("nc *", natsConn)
+	g.P("timeout ", timeDuration)
+	g.P("interceptor ", goNatsPkg.Ident("UnaryClientInterceptor"))
+	g.P("}")
+	g.P()
+
+	// Client struct functions
+
+	// Generate SetTimeout function
+	g.P("func (c *", unexport(cliName), ") SetTimeout(timeout ", timeDuration, ") {")
+	g.P("c.timeout = timeout")
+	g.P("}")
+	g.P()
+
+	// Generate ListInstances function
+	g.P("func (c *", unexport(cliName), ") ListInstances(ctx ", ctx, ") ([]*", goNatsPkg.Ident("Ping"), ", error) {")
+	g.P("return c.Ping(ctx)")
+	g.P("}")
+	g.P()
+
+	// Generate Ping/Stats/Info functions
+	generateReqFunc(g, cliName, service.GoName, "Stats", microPkg.Ident("Stats"), micro.StatsVerb)
+	generateReqFunc(g, cliName, service.GoName, "Info", microPkg.Ident("Info"), micro.InfoVerb)
+	generateReqFunc(g, cliName, service.GoName, "Ping", goNatsPkg.Ident("Ping"), micro.PingVerb)
+
+	// Generate handle function
+	g.P("func (c *", unexport(cliName), ") handle(ctx ", contextPkg.Ident("Context"), ", req ", protoMessage, ", info *", goNatsPkg.Ident("MethodInfo"), ", out ", protoMessage, ", opts ...", goNatsPkg.Ident("CallOption"), ") error {")
+	g.P("var headerMap ", natsPkg.Ident("Header"))
+	g.P("if ctxHeaders := ", goNatsPkg.Ident("HeadersFromOutgoingContext"), "(ctx); ctxHeaders != nil {")
+	g.P("headerMap = ", natsPkg.Ident("Header"), "(ctxHeaders)")
+	g.P("for key, values := range headerMap {")
+	g.P("headerMap[key] = values")
+	g.P("}")
+	g.P("} else {")
+	g.P("headerMap = ", natsPkg.Ident("Header"), "{}")
+	g.P("}")
+	g.P()
+	g.P("invoker := invoker(c.nc)")
+	g.P()
+	g.P("if c.interceptor == nil {")
+	g.P("return invoker(ctx, info, req, out, headerMap, opts...)")
+	g.P("} else {")
+	g.P("return c.interceptor(ctx, info, req, out, headerMap, invoker, opts...)")
 	g.P("}")
 	g.P("}")
 	g.P()
